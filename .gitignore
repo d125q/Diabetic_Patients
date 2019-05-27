@@ -291,7 +291,7 @@ TSWLatexianTemp*
 *~[0-9]*
 
 # auto folder when using emacs and auctex
-./auto/*
+auto/
 *.el
 
 # expex forward references with \gathertags
@@ -299,3 +299,6 @@ TSWLatexianTemp*
 
 # standalone packages
 *.sta
+
+# figures
+figure/
