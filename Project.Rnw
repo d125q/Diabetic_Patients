@@ -1,0 +1,1071 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[babel]{microtype}
+\usepackage[a4paper]{geometry}
+\usepackage[svgnames, psnames, x11names]{xcolor}
+\usepackage{mathtools, amsthm, amssymb, xfrac, mathrsfs, cancel, upgreek, bm}
+\usepackage{graphicx, caption, subcaption, blkarray}
+\usepackage[unicode, colorlinks, breaklinks]{hyperref}
+\usepackage[nameinlink]{cleveref}
+\usepackage[detect-all]{siunitx}
+\usepackage{multirow, array, enumitem, booktabs}
+\usepackage[hyperref, backref, backend=biber, style=alphabetic]{biblatex}
+\usepackage{lmodern}
+\usepackage[parfill]{parskip}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\addbibresource{Bibliography.bib}
+
+\hypersetup{%
+  pdfinfo={%
+    Title={Mining the "Diabetes in 130 US Hospitals for Years 1999--2008" Dataset},
+    Subject={Data Mining},
+    Author={Dario Gjorgjevski},
+    Keywords={Data Mining, Visualization, Preprocessing, Classification,
+      Clustering, Decision Trees, Naïve Bayes, k-Nearest Neighbors,
+      DBSCAN, Association Rules}
+  },
+  linkcolor=MediumBlue,
+  urlcolor=DarkCyan,
+  citecolor=ForestGreen
+}
+
+\title{Mining the ``Diabetes in \num{130} US Hospitals for Years 1999--2008'' Dataset}
+\author{Dario Gjorgjevski\\
+  \href{mailto:gjorgjevski.dario@students.finki.ukim.mk}
+  {\texttt{gjorgjevski.dario@students.finki.ukim.mk}}}
+\date{\textit{Final Project in Data Mining} \\[.5\baselineskip] \today}
+
+<<setup, include=FALSE>>=
+library(ggplot2)
+library(caret)
+library(mlr)
+library(RWeka)
+library(corrplot)
+library(sampling)
+library(dbscan)
+library(arules)
+library(arulesViz)
+@
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+The dataset I will be mining is called ``Diabetes in \num{130} US Hospitals for
+Years 1999--2008''
+(\href{https://archive.ics.uci.edu/ml/datasets/Diabetes+130-US+hospitals+for+years+1999-2008}{UCI
+  repository link}).  The data represents \num{10} years (1999--2008) of
+clinical care at \num{130} US hospitals and integrated delivery networks.  It
+includes over \num{50} attributes representing patient and hospital outcomes.
+Based on the insights from the previous exercises, I will:
+\begin{enumerate}
+\item Perform additional preprocessing;
+\item Use \emph{thresholding} when classifying;
+\item Use (stratified) cross-validation with robust measures (area under ROC
+  curve, $F_1$, etc.) rather than simple train-test splits whenever possible;
+\item Test decision trees for statistically significant difference.
+\end{enumerate}
+
+The attributes of the dataset are as follows:
+\begin{itemize}[noitemsep]
+\item \texttt{encounter\_id} (numeric): Unique identifier of an encounter.
+\item \texttt{patient\_nbr} (numeric): Unique identifier of a patient.
+\item \texttt{race} (nominal): Values: Caucasian, Asian, African American,
+  Hispanic, and other.
+\item \texttt{gender} (nominal): Values: male, female, and unknown/invalid.
+\item \texttt{age} (nominal): Grouped in \num{10}-year intervals:
+  $[0, 10), [10, 20), \ldots, [90, 100)$.
+\item \texttt{weight} (numeric): Weight in pounds.
+\item \texttt{admission\_type\_id} (nominal): Integer identifier corresponding
+  to \num{9} distinct values, e.g., emergency, urgent, elective, newborn, and
+  not available.
+\item \texttt{discharge\_disposition\_id} (nominal): Integer identifier
+  corresponding to \num{29} distinct values, e.g., discharged to home, expired,
+  and not available.
+\item \texttt{admission\_source\_id} (nominal): Integer identifier corresponding
+  to \num{21} distinct values, e.g., physician referral, emergency room, and
+  transfer from a hospital.
+\item \texttt{time\_in\_hospital} (numeric): Integer number of days between
+  admission and discharge.
+\item \texttt{payer\_code} (nominal): Integer identifier corresponding to
+  \num{23} distinct values, e.g., Blue Cross/Blue Shield, Medicare, and
+  self-pay.
+\item \texttt{medical\_speciality} (nominal): Integer identifier of a specialty
+  of the admitting physician, corresponding to \num{84} distinct values, e.g.,
+  cardiology, internal medicine, family/general practice, and surgeon.
+\item \texttt{num\_lab\_procedures} (numeric): Number of lab tests performed
+  during the encounter.
+\item \texttt{num\_procedures} (numeric): Number of procedures performed during
+  the encounter.
+\item \texttt{num\_medications} (numeric): Number of medications administered
+  during the encounter.
+\item \texttt{number\_outpatient} (numeric): Number of outpatient visits of the
+  patient in the year preceding the encounter.
+\item \texttt{number\_emergency} (numeric): Number of emergency visits of the
+  patient in the year preceding the encounter.
+\item \texttt{number\_inpatient} (numeric): Number of inpatient visits of the
+  patient in the year preceding the encounter.
+\item \texttt{diag\_1} (nominal): Primary diagnosis (coded as first three digits
+  of ICD9); \num{848} values.
+\item \texttt{diag\_2} (nominal): Secondary diagnosis (coded as first three
+  digits of ICD9); \num{923} values.
+\item \texttt{diag\_3} (nominal): Additional diagnosis (coded as first three
+  digits of ICD9); \num{954} values.
+\item \texttt{number\_diagnoses} (numeric): Number of diagnoses entered to the
+  system.
+\item \texttt{max\_glu\_serum} (nominal): Indicates the range of the result or
+  if the test was not taken. Values: ``200,'' ``>300,'' ``normal,'' and ``none''
+  if not measured.
+\item \texttt{A1Cresult} (nominal): Indicates the range of the result or if the
+  test was not taken. Values: ``>8'' if the result was greater than
+  \SI{8}{\percent}, ``>7'' if the result was greater than \SI{7}{\percent} but
+  less than \SI{8}{\percent}, ``normal'' if the result was less than
+  \SI{7}{\percent}, and ``none'' if not measured.
+\item \num{24} attributes for medications (nominal): For the generic names:
+  metformin, repaglinide, nateglinide, chlorpropamide, glimepiride,
+  acetohexamide, glipizide, glyburide, tolbutamide, pioglitazone, rosiglitazone,
+  acarbose, miglitol, troglitazone, tolazamide, examide, sitagliptin, insulin,
+  glyburide-metformin, glipizide-metformin, glimepiride-pioglitazone,
+  metformin-rosiglitazone, and metformin-pioglitazone, the feature indicates
+  whether the drug was prescribed or there was a change in the dosage.  Values:
+  ``up'' if the dosage was increased during the encounter, ``down'' if the
+  dosage was decreased, ``steady'' if the dosage did not change, and ``no'' if
+  the drug was not prescribed.
+\item \texttt{change} (nominal): Indicates if there was a change in diabetic
+  medications (either dosage or generic name).  Values: ``change'' and ``no
+  change.''
+\item \texttt{diabetesMed} (nominal): Indicates if there was any diabetic
+  medication prescribed.  Values: ``yes'' and ``no.''
+\item \texttt{readmitted} (nominal): Days to inpatient readmission.  Values:
+  ``<30'' if the patient was readmitted in less than \num{30} days, ``>30'' if
+  the patient was readmitted in more than \num{30} days, and ``No'' for no
+  record of readmission.
+\end{itemize}
+
+The goal is to predict the \texttt{readmitted} attribute, i.e., whether a
+readmission will occur.  In particular, I will focus on \emph{early} readmission
+(less than \num{30} days).  In order to do so, the following steps will be
+performed:
+\begin{enumerate}
+\item Preprocessing and visualization (\cref{sec:preprocess-and-visualize});
+\item Classification using decision trees, naïve Bayes, and $k$-nearest
+  neighbors (\cref{sec:classify});
+\item Clustering using $k$-means and DBSCAN (\cref{sec:cluster});
+\item Association rule mining using the apriori algorithm
+  (\cref{sec:associate}).
+\end{enumerate}
+
+\section{Preprocessing and visualization}\label{sec:preprocess-and-visualize}
+In this section I will take a preliminary look into the data, preprocess it, and
+provide some insights through various visualizations.
+
+\subsection{Reading the data}
+
+I will begin by reading the dataset from the provided CSV file.  Additionally,
+the \texttt{encounter\_id} and \texttt{patient\_nbr} attributes will be dropped
+as they are unique among patients.  Alternative approaches in literature
+(\autocite{Str+14}) include keeping only \emph{first} encounters.  NA values are
+denoted by question marks (\texttt{?}) in the dataset.
+
+<<read.data, cache=FALSE>>=
+set.seed(13)  # The seed is needed for reproducibility purposes.
+df <- read.csv("diabetic_data.csv", na.strings="?")     # Read the data.
+df <- subset(df, select=-c(encounter_id, patient_nbr))  # Drop unique ID's.
+@
+
+IDs which have the meaning of nominal attributes, i.e., those present in the
+\texttt{IDs\_mapping.csv} file will be converted to factors as that is what they
+represent.
+
+As already mentioned, I will be focusing on \emph{early} readmission, so a
+patient will be considered readmitted if and only if he/she was readmitted
+within \num{30} days.
+
+<<sanitize.ids, cache=FALSE>>=
+df <- transform(df, admission_type_id=as.factor(admission_type_id),
+                discharge_disposition_id=as.factor(discharge_disposition_id),
+                admission_source_id=as.factor(admission_source_id),
+                readmitted=as.factor(ifelse(readmitted == "<30", "Readmitted", "Other")))
+@
+
+Let us now summarize the dataset in its present form:
+
+<<summary, cache=FALSE>>=
+str(df, width=75, strict.width="cut")
+@
+
+\subsection{Imputation}
+
+Since there are attributes with missing values, the first preprocessing step
+I'll do is to impute those attributes.  Let's look at the percentages of values
+that are missing:
+
+<<percent.missing, cache=FALSE>>=
+percent.missing <- colMeans(is.na(df))
+names(percent.missing) <- colnames(df)
+percent.missing
+@
+
+The \texttt{weight} attribute is not present in more than \SI{95}{\percent} of
+the observation, whereas the medical specialty and payer code attributes are not
+present in around \SI{40}{\percent} of the observations each.  Such attributes
+will not be of much use to our data mining tasks, and imputing them can lead to
+meaningless values.  Because of this, they will be dropped.
+
+<<drop.missing, cache=FALSE>>=
+df <- subset(df, select=-c(weight, medical_specialty, payer_code))
+@
+
+For the remaining attributes, the imputation strategy will be:
+\begin{itemize}
+\item Numeric values will be imputed by their means;
+\item Non-numeric values will be imputed by random sampling with replacement
+  from the available values.
+\end{itemize}
+
+<<impute.missing, cache=FALSE>>=
+#' Imputation of numeric attributes by mean and of non-numeric by SWR.
+impute.missing <- function (attr) {
+    if (is.numeric(attr))  # Numeric.
+        attr[is.na(attr)] <- mean(attr, na.rm=TRUE)
+    else  # Non-numeric.
+        attr[is.na(attr)] <- sample(attr[!is.na(attr)],
+                                    size=length(attr[is.na(attr)]), replace=TRUE)
+    attr
+}
+
+df <- data.frame(lapply(df, impute.missing))
+@
+
+\subsection{Grouping of nominal attributes}
+
+\autocite{Str+14} suggest that nominal attributes with many levels be grouped
+together.  This greatly reduces the complexity of the task without inflicting a
+huge loss on the learning algorithms.
+
+<<group.nominal, cache=FALSE>>=
+#' Grouping of diagnoses.
+#' Diagnoses related to similar organs are grouped together (IC9 codes).
+#' See http://www.hindawi.com/journals/bmri/2014/781670/tab3/
+group.diags <- function (diags) {
+    diags <- as.character(diags)
+    factor(sapply(diags, function (diag) {
+        if (!is.na(suppressWarnings(as.numeric(diag)))) {
+            diag <- as.numeric(diag)
+            if ((diag >= 390 && diag <= 459) || diag == 785)
+                "Circulatory"
+            else if ((diag >= 460 && diag <= 519) || diag == 786)
+                "Respiratory"
+            else if ((diag >= 520 && diag <= 579) || diag == 787)
+                "Digestive"
+            else if (diag >= 250 && diag < 251)
+                "Diabetes"
+            else if (diag >= 800 && diag <= 999)
+                "Injury"
+            else if (diag >= 710 && diag <= 739)
+                "Musculoskeletal"
+            else if ((diag >= 580 && diag <= 629) || diag == 788)
+                "Genitourinary"
+            else if ((diag >= 140 && diag <= 239) ||
+                     diag == 780 || diag == 781 || diag == 784 ||
+                     (diag >= 240 && diag <= 279) ||
+                     (diag >= 680 && diag <= 709) || diag == 782 ||
+                     (diag >= 1 && diag <= 139))
+                "Neoplasms"
+            else
+                "Other"
+        } else {
+            "Other"
+        }
+    }),
+    levels=c("Circulatory", "Respiratory", "Digestive", "Diabetes", "Injury",
+             "Musculoskeletal", "Genitourinary", "Neoplasms", "Other"),
+    ordered=FALSE)
+}
+
+#' Grouping of ages, discharges, and admissions.
+#' The grouping is done based on distributional properties of readmission.
+#' See http://www.hindawi.com/journals/bmri/2014/781670/tab3/
+group.ages <- function (ages) {
+    levels(ages) <- c(rep("[0-30)", 3), rep("[30-60)", 3), rep("[60-100)", 4))
+    ages
+}
+
+group.discharges <- function (discharges) {
+    levels(discharges) <- c("To home", rep("Other", 29)); discharges
+}
+
+group.admissions <- function (admission.sources) {
+    levels(admission.sources) <-
+        c("Because of physician/clinic referral", rep("Other", 4),
+          "From emergency room", rep("Other", 18)); admission.sources
+}
+
+df <- transform(df, diag_1=group.diags(diag_1), diag_2=group.diags(diag_2),
+                diag_3=group.diags(diag_3), age=group.ages(age),
+                discharge_disposition_id=group.discharges(discharge_disposition_id),
+                admission_source_id=group.admissions(admission_source_id))
+@
+
+\subsection{Outlier removal}
+
+Outliers are associated to values outside interquartile ranges.  More
+specifically, I will consider as an outlier everything outside of the
+\begin{equation}
+  [\mathrm{Q1} - 1.75 \cdot \mathrm{IQR}, \mathrm{Q3} + 1.75 \cdot \mathrm{IQR}]
+\end{equation}
+range, where $\mathrm{Q1}$ is the first, $\mathrm{Q3}$ the third quartile, and
+$\mathrm{IQR}$ the interquartile range.  Note that many people use \num{1.5}
+instead of \num{1.75}, but I will relax that condition.
+
+Boxplots are associated to quartiles, so let's analyze the boxplots of numeric attributes.
+
+<<boxplots, fig.height=3.2, fig.align='center', cache=FALSE>>=
+par(mfrow=c(1, 2))
+for (name in colnames(df[sapply(df, is.numeric)]))
+    boxplot(df[[name]], range=1.75, main=name)
+@
+
+The boxplots shows the presence of outliers -- values far outside of the
+whiskers.  Let's drop them.
+
+<<drop.outliers, cache=FALSE>>=
+for (name in colnames(df[sapply(df, is.numeric)])) {
+    stats <- boxplot.stats(df[[name]], coef=1.75, do.conf=FALSE)
+    # stats$out contains outlier values
+    df <- df[!(df[[name]] %in% stats$out), ]
+}
+@
+
+\subsection{Attribute cleaning}
+
+The first cleaning step I'll perform is to drop attributes whose variance is
+\emph{close to zero}.  Such attributes will not be of much use to our data
+mining tasks, as they provide little to no information.  Upon inspection it can
+be seen that such attributes will include \texttt{glyburide.metformin} and
+similar nominal attributes.
+
+<<drop.nzv, cache=FALSE>>=
+nzv.info <- nzv(df, saveMetrics=TRUE)  # Check for near-zero variance.
+nzv.info
+df <- df[, !nzv.info$nzv]  # Drop any attributes with near-zero variance.
+@
+
+Next, I will analyze the correlations
+(\href{https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient}{Pearson's
+  $r$ coefficient}) between numeric attributes.  High correlation means linear
+dependence between attributes, or, in other words, redundancy.  Such redundancy
+will only slow our algorithms down without making them any better (sometimes it
+might even make them worse).
+
+The correlations will be tested for statistical significance.
+
+<<analyze.cor, fig.align='center', cache=FALSE>>=
+#' p-value and confidence interval estimation for correlation matrices.
+cor.mat.test <- function (cor.mat, conf.level=0.95) {
+    cor.mat <- as.matrix(cor.mat)
+    n <- ncol(cor.mat)
+    p.mat <- lowCI.mat <- uppCI.mat <- matrix(NA, n, n)
+    diag(p.mat) <- 0
+    diag(lowCI.mat) <- diag(uppCI.mat) <- 1
+    for (i in 1:(n - 1)) {
+        for (j in (i + 1):n) {
+            tmp <- cor.test(cor.mat[, i], cor.mat[, j], conf.level=conf.level)
+            p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+            lowCI.mat[i, j] <- lowCI.mat[j, i] <- tmp$conf.int[1]
+            uppCI.mat[i, j] <- uppCI.mat[j, i] <- tmp$conf.int[2]
+        }
+    }
+    list(p.mat=p.mat, lowCI.mat=lowCI.mat, uppCI.mat=uppCI.mat)
+}
+
+cor.mat <- cor(df[sapply(df, is.numeric)], method="pearson"); cor.mat
+corrplot(cor.mat, p.mat=cor.mat.test(cor.mat)$p.mat, insig="p-value", sig.level=0.05)
+@
+
+There are not any highly correlated attributes, which is a good sign.
+Reassuringly, the $p$-values are high enough and support the null hypothesis
+that the correlations are \num{0}.  The highest correlations are exhibited by
+attributes related to hospital stay and medications (as expected -- longer stays
+usually lead to more medication), but both are less than \num{0.5}.
+
+\subsection{Transformation}
+
+Numeric attributes should be analyzed for \emph{skew} in their distributions.
+Skews are generally undesirable and should be corrected via numeric
+transformations.
+
+<<histograms, fig.height=7.35, fig.align='center', cache=FALSE>>=
+par(mfrow=c(3, 2))
+for (name in colnames(df[sapply(df, is.numeric)]))
+    hist(df[[name]], main=name, xlab="Value")
+@
+
+It can be seen that some attributes have skewed distributions, so in addition to
+\emph{centering} and \emph{scaling} I will perform a Box--Cox
+transformation\footnote{A so-called
+  \href{https://en.wikipedia.org/wiki/Power_transform}{power
+    transform.}}~\autocite{BC64} of the data, which is useful in correcting
+skewed distributions.  Centering and scaling together are also called z-score
+normalization.
+
+More importantly, note that the class distribution is very imbalanced, i.e.,
+there are very few positive observations compared to negative.
+
+<<imbalance, cache=FALSE>>=
+table(df$readmitted)
+@
+
+To attempt to compensate for this, I will use a hybrid oversampling technique
+called SMOTE~\autocite{Cha+02}.  SMOTE oversamples the minority class by
+synthesizing new observations.
+
+<<wrap.learner, cache=FALSE>>=
+#' Wrap a mlr learning algorithm in a SMOTE preprocessor that boosts
+#' the minority class by a rate of 5 and considers 10 nearest-neighbors
+#' when synthesizing observations.
+#' Additionally, perform centering, scaling, and Box--Cox transformation.
+wrap.learner <- function (base.learner)
+    makePreprocWrapperCaret(makeSMOTEWrapper(base.learner, sw.rate=5, sw.nn=10),
+                            ppc.center=TRUE, ppc.scale=TRUE, ppc.BoxCox=TRUE)
+
+@
+
+There is no point in further dimensionality reduction as PCA analysis shows that
+we need to retain all components in order to capture a significant portion of
+the variance.
+
+\subsection{Visualization}
+
+An interesting concept to explore is whether patients receive roughly the same
+amount of medical care regardless of race.  We can do this by overlaying race
+information on top of histograms.
+
+<<race.equality, fig.height=3.15, fig.align='center', cache=FALSE>>=
+for (name in colnames(df[sapply(df, is.numeric)])) {
+    attr <- df[[name]]
+    breaks <- pretty(range(attr, n=nclass.Sturges(attr), min.n=1))
+    print(ggplot(df, aes_q(x=as.name(name))) +
+          stat_bin(aes(y=..density.., fill=race), breaks=breaks))
+}
+@
+
+It can be seen that the densities are very uniform, i.e., each person gets
+roughly the same amount of medical care no matter what his/her race is.
+\emph{However}, a boxplot shows that Caucasian patients receive at the median
+more diagnoses than do other patients.
+
+<<caucasian.number_diagnoses, fig.height=3, fig.align='center', cache=FALSE>>=
+ggplot(df, aes(x=race, y=number_diagnoses)) + geom_boxplot(aes(fill=race))
+@
+
+We are now free to continue with classification, clustering, and association
+rule mining.
+
+\section{Classification}\label{sec:classify}
+
+Classification will be performed using decision trees, naïve Bayes, and
+$k$-nearest neighbors.
+
+Whenever possible, algorithms will be set to predict \emph{probabilities} rather
+than classes, i.e., the probability that a certain observation belongs to a
+given class.  This allows \emph{thresholding} and \emph{ROC analysis} to be
+performed.
+
+Our go-to measures of goodness will be the area under the ROC curve and the
+$F_1$ score.  The $F_1$ score is defined as
+\begin{equation*}
+  F_1 = 2 \cdot \frac{\mathrm{precision} \cdot
+    \mathrm{recall}}{\mathrm{precision} + \mathrm{recall}}\text{.}
+\end{equation*}
+
+When thresholding, I will use a personally defined measure (denoted
+$\mathrm{bm}$) as a ``balanced'' score between accuracy and $F_1$:
+\begin{equation}\label{eq:bm}
+  \mathrm{bm} = \frac{\mathrm{accuracy} + 2 \cdot F_1}{3}\text{.}
+\end{equation}
+
+The code to create the \texttt{mlr} classification task, resampling strategy,
+and balanced measure follows:
+<<classif.task>>=
+# Classification task creation.
+classif.task <- makeClassifTask(
+    data=df, target="readmitted", positive="Readmitted")
+
+# 5-fold startified x-val for performance measurement.
+classif.rdesc <- makeResampleDesc("CV", iters=5, stratify=TRUE)
+
+# Train and test sets.
+classif.n <- getTaskSize(classif.task)
+classif.train <- sample(classif.n, size=round(4/5 * classif.n))
+classif.test <- setdiff(seq_len(classif.n), classif.train)
+
+# Balanced measure.
+bm <- makeMeasure(id="bm", name="Balanced measure",
+                  properties=c("classif", "req.pred", "req.truth"),
+                  minimize=FALSE, worst=0, best=1,
+                  fun=function (...) (acc$fun(...) + 2 * f1$fun(...)) / 3)
+@
+
+\subsection{Decision trees}
+
+I will present and compare two different methods for building decision trees:
+\begin{itemize}
+\item CART~\autocite{Bre+84} provided by the \Sexpr{'rpart'} package.  This
+  algorithm uses the Gini index when deciding which attribute to split by.
+\item J48 (C4.5)~\autocite{Qui93} provided by the \Sexpr{'RWeka'} package.  This
+  algorithm uses information gain when deciding which attribute to split by.
+\end{itemize}
+
+<<initialize.decision.trees, cache=FALSE>>=
+# Create the CART learner.
+rpart.lrn <- makeLearner("classif.rpart", predict.type="prob")
+rpart.lrn <- setHyperPars(rpart.lrn, par.vals=list(xval=10))  # 10-fold x-val.
+rpart.lrn <- wrap.learner(rpart.lrn)
+
+# Create the J48 learner.
+j48.lrn <- makeLearner("classif.J48", predict.type="prob")    # 3-fold x-val.
+j48.lrn <- wrap.learner(j48.lrn)
+@
+
+These decision trees can now be trained and have their performance assessed.
+The internal cross-validation is used for \emph{pruning} and \emph{parameter
+  tuning}.  Let's see what CART can do:
+
+<<rpart.resample, message=FALSE, cache=FALSE>>=
+# Run cross-validation using a default threshold of 50%.
+rpart.res <- resample(rpart.lrn, classif.task, classif.rdesc,
+                      measures=list(f1, auc, acc))
+rpart.res$aggr
+@
+
+Unfortunately, due to the class imbalance, using a default threshold of
+\num{0.5} leads to an $F_1$ score of almost 0, despite the accuracy being as
+high as \SI{90}{\percent}.  In order to remedy that, I will tune the threshold:
+
+<<rpart.tune.threshold, cache=FALSE, message=FALSE>>=
+# Fit the model on the training and testing sets.
+rpart.mod <- train(rpart.lrn, task=classif.task, subset=classif.train)
+rpart.pred <- predict(rpart.mod, task=classif.task, subset=classif.test)
+
+# Tune the threshold using the previously-defined balanced measure.
+rpart.thresh <- tuneThreshold(rpart.pred, measure=bm)
+rpart.pred <- setThreshold(rpart.pred, rpart.thresh$th)
+
+# Check the results.
+performance(rpart.pred, measures=list(tpr, fpr, acc, f1, auc, bm))
+rpart.pred$time
+getConfMatrix(rpart.pred)
+@
+
+Given the imbalance of the dataset, CART does quite well.  It is, however, quite
+``aggressive.''  Analyzing its ROC and threshold curves let us observe some more
+general results and patterns:
+
+<<rpart.curves, fig.height=4.25, fig.align='center', cache=FALSE>>=
+rpart.tvp <- generateThreshVsPerfData(rpart.res, measures=list(fpr, tpr))
+plotROCCurves(rpart.tvp)
+plotThreshVsPerf(rpart.tvp)
+@
+
+We now repeat these steps using the J48 algorithm.
+
+<<j48.resample, message=FALSE, cache=FALSE>>=
+# Run cross-validation using a default threshold of 50%.
+j48.res <- resample(j48.lrn, classif.task, classif.rdesc,
+                    measures=list(f1, auc, acc))
+j48.res$aggr
+@
+
+The J48 algorithm performs similarly to CART.  We can test their accuracies for
+statistical significance using a $t$-test for dependent data (as we are fitting
+our models on the exact same data).  The $t$ statistic is given by
+\begin{equation*}
+  t = \frac{\bar{X_D} - \mu_0}{\frac{s_D}{\sqrt{n}}}\text{,}
+\end{equation*}
+where $X_D$ is a random variable denoting the difference in errors.
+
+<<test.decision.trees, cache=FALSE>>=
+measure.err <- function (lrn, task, rinst)
+    function (rind) {
+        mod <- train(lrn, task, subset=rinst$train.inds[[rind]])
+        pred <- predict(mod, task, subset=rinst$test.inds[[rind]])
+        mmce$fun(pred=pred)
+    }
+
+iters <- 15
+classif.rinst <- makeResampleInstance(
+    makeResampleDesc("CV", iters=iters, stratify=TRUE), classif.task)
+rpart.errs <- sapply(1:iters,
+                     measure.err(rpart.lrn, classif.task, classif.rinst))
+j48.errs <- sapply(1:iters,
+                   measure.err(j48.lrn, classif.task, classif.rinst))
+
+t.test(rpart.errs, j48.errs, paired=TRUE)
+@
+
+Despite the small $p$-value causing us to reject the null hypothesis, we see
+that the confidence interval is very close to $0$.  Thus, we can consider CART
+and J48 to be more or less equivalent in terms of accuracy.
+
+Next, we attempt to tune J48's threshold.
+
+<<j48.tune.threshold, cache=FALSE, message=FALSE>>=
+# Fit the model on the training and testing sets.
+j48.mod <- train(j48.lrn, task=classif.task, subset=classif.train)
+j48.pred <- predict(j48.mod, task=classif.task, subset=classif.test)
+
+# Tune the threshold using the previously-defined balanced measure.
+j48.thresh <- tuneThreshold(j48.pred, measure=bm)
+j48.pred <- setThreshold(j48.pred, j48.thresh$th)
+
+# Check the results.
+performance(j48.pred, measures=list(tpr, fpr, acc, f1, auc, bm))
+j48.pred$time
+getConfMatrix(j48.pred)
+@
+
+J48 appears to be more ``conservative'' when classifying positive samples,
+whereas CART more ``aggressive.''  This results in J48 having greater overall
+accuracy, but smaller true positive rate.  The true- and false-positive rates
+can be analyzed by looking at the ROC curves.
+
+As the figures below show, the threshold curves of J48 are much smoother
+compared to those of CART, i.e., there are no flat regions and the spikes are
+not as prominent.
+
+<<j48.curves, fig.height=4.1, fig.align='center', cache=FALSE>>=
+j48.tvp <- generateThreshVsPerfData(j48.res, measures=list(fpr, tpr))
+plotROCCurves(j48.tvp)
+plotThreshVsPerf(j48.tvp)
+@
+
+At the end, I will perform calibration plots of both CART and J48.  These plots
+visualize estimated class probabilities against the observed frequencies.
+
+<<decision.trees.calibration, fig.height=4, fig.align='center', cache=FALSE>>=
+plotCalibration(generateCalibrationData(list(CART=rpart.pred, J48=j48.pred)))
+@
+
+Again we see that the probabilities in J48 are much more uniformly distributed,
+explaining the smoother threshold curves.
+
+\subsection{Naïve Bayes}
+
+I will create and evaluate the naïve Bayes classifier by repeating the procedure
+with the decision trees.  Naïve Bayes assumes conditional independence between
+the attributes given the class, and makes a prediction
+\begin{equation*}
+  \hat{y} = \argmax_{k \in \{1, \ldots, K\}} \Pr(C_k) \prod\limits_{i = 1}^{K}
+  \Pr(x_i \mid C_i)\text{.}
+\end{equation*}
+
+<<initialize.naive.bayes, cache=FALSE>>=
+# Create the naïve Bayes learner.
+nb.lrn <- makeLearner("classif.naiveBayes", predict.type="prob")
+nb.lrn <- wrap.learner(nb.lrn)
+@
+
+Cross-validation is used to assess preliminary performance:
+
+<<nb.resample, message=FALSE, cache=FALSE>>=
+# Run cross-validation using a default threshold of 50%.
+nb.res <- resample(nb.lrn, classif.task, classif.rdesc,
+                   measures=list(f1, auc, acc))
+nb.res$aggr
+@
+
+Interestingly, naïve Bayes has a higher $F_1$ score ``out of the box,'' but a
+lower accuracy.  Perhaps it can be made even better with threshold tuning.
+
+<<nb.tune.threshold, cache=FALSE, message=FALSE>>=
+# Fit the model on the training and testing sets.
+nb.mod <- train(nb.lrn, task=classif.task, subset=classif.train)
+nb.pred <- predict(nb.mod, task=classif.task, subset=classif.test)
+
+# Tune the threshold using the previously-defined balanced measure.
+nb.thresh <- tuneThreshold(nb.pred, measure=bm)
+nb.pred <- setThreshold(nb.pred, nb.thresh$th)
+
+# Check the results.
+performance(nb.pred, measures=list(tpr, fpr, acc, f1, auc, bm))
+nb.pred$time
+getConfMatrix(nb.pred)
+@
+
+Unfortunately, we see that optimizing the balanced measure as defined
+in~\cref{eq:bm} lowers the $F_1$ score in order to compensate for accuracy.  Of
+course, we manage to achieve a decent accuracy of \SI{80}{\percent} (compared to
+the previous \SI{75}{\percent}) while maintaining the $F_1$ score at around
+\num{0.2}.
+
+Another point is that naïve Bayes takes a much longer time to classify than the
+tree-based algorithms.  However, this is expected.
+
+The ROC curve and calibration plots wrap up our discussion on naïve Bayes.  We
+observe some interesting patterns that are summarized below.
+
+\pagebreak
+
+<<nb.curves, fig.height=4.2, fig.align='center', cache=FALSE>>=
+nb.tvp <- generateThreshVsPerfData(nb.res, measures=list(fpr, tpr))
+plotROCCurves(nb.tvp)
+plotThreshVsPerf(nb.tvp)
+plotCalibration(generateCalibrationData(nb.pred))
+@
+
+Naïve Bayes appears to be a much stabler and a very ``smooth'' algorithm.  The
+curves have almost no spikes and the frequencies are distributed very uniformly.
+
+\subsection{$k$-nearest neighbors}
+
+I will be using Weka's implementation of $k$NN.  For this purpose, I will first
+write the preprocessed data in Weka's ARFF format.
+<<write.arff, eval=FALSE>>=
+library(RWeka)
+write.arff(getTaskData(classif.task, subset=classif.train),
+           "diabetic_data-train.arff")  # Training data.
+write.arff(getTaskData(classif.task, subset=classif.test),
+           "diabetic_data-test.arff")   # Testing data.
+@
+
+Next, I will load that data into Weka and use $k$NN coupled with SMOTE.  In
+particular, I will use the same SMOTE settings as previously (oversample by a
+factor of $5$, consider $10$ nearest-neighbors).
+
+The SMOTE command line is:
+\begin{verbatim}
+SMOTE -C 0 -K 10 -P 500.0 -S 13
+\end{verbatim}
+
+Weka implements the IB$k$~\autocite{AK91} algorithm.  I will use
+cross-validation to determine the value for $k$ ($k \in \{1, 2, \ldots, 13\}$)
+and inverse-distance weighting.  As we will see, taking $k = 4$ provides the
+greatest accuracy.
+
+In order to speed up the algorithm
+\href{https://en.wikipedia.org/wiki/K-d_tree}{$k$-d trees} will be used, as they
+allow for $\mathcal O(\log n)$ nearest-neighbor queries.  Distance will be
+measured by the common Euclidean norm.
+
+\begin{verbatim}
+=== Run information ===
+
+Scheme:       weka.classifiers.lazy.IBk -K 13 -W 0 -X -I
+              -A "weka.core.neighboursearch.KDTree
+              -A \"weka.core.EuclideanDistance
+              -R first-last\"
+              -S weka.core.neighboursearch.kdtrees.SlidingMidPointOfWidestSide
+              -W 0.01 -L 40 -N" -batch-size 500
+Relation:     diabetic_data-train-weka.filters.supervised.instance.SMOTE-C0-K10-P500.0-S13
+Instances:    80920
+Attributes:   25
+              race
+              gender
+              age
+              admission_type_id
+              discharge_disposition_id
+              admission_source_id
+              time_in_hospital
+              num_lab_procedures
+              num_procedures
+              num_medications
+              number_inpatient
+              diag_1
+              diag_2
+              diag_3
+              number_diagnoses
+              A1Cresult
+              metformin
+              glipizide
+              glyburide
+              pioglitazone
+              rosiglitazone
+              insulin
+              change
+              diabetesMed
+              readmitted
+Test mode:    user supplied test set:  size unknown (reading incrementally)
+
+=== Classifier model (full training set) ===
+
+IB1 instance-based classifier
+using 4 inverse-distance-weighted nearest neighbour(s) for classification
+
+
+Time taken to build model: 0.28 seconds
+
+=== Evaluation on test set ===
+
+Time taken to test model on supplied test set: 38.24 seconds
+
+=== Summary ===
+
+Correctly Classified Instances       11006               80.2889 %
+Incorrectly Classified Instances      2702               19.7111 %
+Kappa statistic                          0.0195
+Mean absolute error                      0.2462
+Root mean squared error                  0.4081
+Relative absolute error                 60.1874 %
+Root relative squared error             98.4431 %
+Total Number of Instances            13708
+
+=== Detailed Accuracy By Class ===
+
+                 TP Rate  FP Rate  Precision  Recall   F-Measure  Class
+                 0.874    0.852    0.904      0.874    0.889      Other
+                 0.148    0.126    0.113      0.148    0.128      Readmitted
+Weighted Avg.    0.803    0.781    0.827      0.803    0.814
+
+                 MCC      ROC Area  PRC Area  Class
+                 0.020    0.532     0.909     Other
+                 0.020    0.532     0.109     Readmitted
+Weighted Avg.    0.020    0.532     0.831
+
+=== Confusion Matrix ===
+
+     a     b   <-- classified as
+ 10807  1560 |     a = Other
+  1142   199 |     b = Readmitted
+\end{verbatim}
+
+Unfortunately, $k$NN performs quite poorly with an area under the ROC curve of
+only \num{0.532}.  The positive class $F_1$ score is poor, too; only
+\num{0.128}.
+
+\section{Clustering}\label{sec:cluster}
+
+Since some of the algorithms we'll be exploring from here on take time---or even
+worse, memory---on the order of $\mathcal O\left(n^2\right)$ or more, I will
+restrict myself to a smaller subset of the data.  For this I am going to use
+stratified sampling -- I believe that associations and clusters should remain
+intact even within such samples.
+
+The subset size will be around $\sfrac{1}{3}$ of the original data.
+
+<<subset.data, cache=FALSE>>=
+st <- strata(df, stratanames="readmitted",
+             size=c(17500, 2500), method="srswor")
+df.subset <- getdata(df, st)
+# Drop unnecessary attributes.
+df.subset <- subset(df.subset, select=-c(ID_unit, Prob, Stratum))
+@
+
+The data for clustering will be centered and scaled.  As we will be using dummy
+variables, a Box--Cox transformation would not be advisable.  We will also drop
+the \texttt{readmitted} attribute as clustering is inherently an
+\emph{unsupervised} task.
+
+<<cluster.data, cache=FALSE>>=
+# We won't be needing the class attribute when clustering.
+cluster.df <- data.frame(model.matrix(readmitted ~ . - 1, df.subset))
+cluster.pp <- preProcess(cluster.df, method=c("center", "scale"))
+cluster.df <- predict(cluster.pp, cluster.df)
+@
+
+The first algorithm I will try is DBSCAN.  In determining its \textsc{Eps} and
+\textsc{MinPts} parameters, I will use the following widely accepted method:
+\begin{enumerate}
+\item \textsc{Eps} is determined by looking at a knee of a $k$NN distance plot
+  (I will take $k = 4$);
+\item \textsc{MinPts} is set to $\#\{\text{dimensions}\} + 1$.
+\end{enumerate}
+
+<<dbscan.pars, fig.height=4.2, fig.align='center', cache=FALSE>>=
+dim(cluster.df)
+kNNdistplot(cluster.df, k=4)
+@
+
+Looking at the plot, one can identify a knee at around \num{11}, so we should
+have $\textsc{Eps} \approx 11$ (I will take it to be exactly \num{11}).  Since
+there are \num{72} dimensions, I will take $\textsc{MinPts} = 73$.
+
+<<dbscan, cache=FALSE>>=
+dbs <- dbscan(cluster.df, eps=11, minPts=73); dbs
+@ 
+
+Unfortunately, it can be seen that the clusters found by DBSCAN do not
+correspond to our \texttt{readmitted} class.
+
+The next algorithm I will try is $k$-means with $k \in \{2, \ldots, 50\}$.  What
+I will measure is the
+\begin{equation}
+  \frac{\mathrm{BetweenSS}}{\mathrm{TotalSS}}
+\end{equation}
+ratio, which should be close to \num{1} if the data exhibits well-separated
+clusters.  The rationale is that $\mathrm{BetweenSS}$ should be more or less
+equal to $\mathrm{TotalSS} = \mathrm{WithinSS} + \mathrm{BetweenSS}$, as
+well-separated clusters minimize $\mathrm{WithinSS}$.
+
+<<kmeans.err, fig.height=4.2, fig.align='center', cache=FALSE>>=
+ks <- 2:50
+kmeans.errs <- sapply(ks, function (k) {
+    km <- kmeans(cluster.df, k, iter.max=20)
+    km$betweenss / km$totss  # Should be high (close to 1).
+})
+plot(ks, kmeans.errs, xlab="k", ylab="BetweenSS / TotalSS ratio")
+@ 
+
+Even with $k = 50$, the $\mathrm{BetweenSS} / {\mathrm{TotalSS}}$ is very poor
+(around \num{0.4}), leading me to believe that there are no well-separated
+clusters in terms of $k$-means within the data.
+
+\section{Association rule mining}\label{sec:associate}
+
+I will use the apriori algorithm~\autocite{AS94} for association rule mining.
+First, we need to discretize our numeric attributes.  I will use clustering to
+perform the discretization.
+
+<<assoc.data, cache=FALSE>>=
+assoc.df <- data.frame(lapply(df.subset, function (attr)
+    if (is.numeric(attr)) discretize(attr, method="cluster") else attr))
+@
+
+Next, I will convert the data to a suitable format (sparse representation).
+
+<<sparsify, cache=FALSE>>=
+assoc.trans <- as(assoc.df, "transactions")
+summary(assoc.trans)
+@
+
+The apriori algorithm is based on two crucial measures, \emph{support} and
+\emph{confidence}, defined as
+\begin{align*}
+  \operatorname{Support}(X \rightarrow Y) = \frac{\sigma(X \cup Y)}{N} = \Pr(X
+  \cup Y)\text{,} &&
+                     \operatorname{Confidence}(X \rightarrow Y) = \frac{\sigma(X \cup Y)}{\sigma(X)}
+                     =
+                     \Pr(Y
+                     \mid X)\text{.}
+\end{align*}
+
+Given this, the first step is to generate \emph{frequent itemsets} -- itemsets
+with support greater than some minimum threshold.  In order to get a feel of the
+data, I will plot the frequent items.  These items make for good left-hand side
+candidates, as long as they do not lead to trivial rules.
+
+<<frequency.plot, fig.height=6.3, fig.align='center', cache=FALSE>>=
+itemFrequencyPlot(assoc.trans, topN=40,
+                  cex.names=0.5, main="Item frequency plot")
+@ 
+
+Several ``items'' appear to be present in relatively high frequency, which is
+hopefully a good sign -- again, as long as they do not lead to trivial rules.
+Now we can check for similarities between items: whether there is any redundancy
+in the transactions.  This will be done with hierarchical clustering.
+
+Observing the dendrogram lets us look at how up in the tree items are merged
+(using complete linkage).  The higher up they are the more dissimilar they are.
+
+<<dissimilarities, fig.height=8.4, fig.align='center', cache=FALSE>>=
+# Generate the dissimilarity matrix.
+dissim.mat <- dissimilarity(assoc.trans, method="phi", which="items")
+
+# Plot the results of the hierarchical clustering.
+# (Uses complete linkage by default)
+plot(hclust(dissim.mat), cex=0.5)
+@
+
+As it can be seen, the vast majority of the items are dissimilar from one
+another and there is no need to further preprocess the data.  When generating
+the rules using the priory algorithm, I will take an interesting support to mean
+having at least \num{5000} observations:
+
+<<min.supp, cache=FALSE>>=
+5000 / nrow(assoc.trans)  # Find a minimum support size.
+@
+
+In other words, the minimum support will be set to \num{0.25}.  The minimum
+confidence will be set to \num{0.75}, and rules will be restricted to include at
+most \num{15} items.
+
+<<generate.rules, cache=FALSE>>=
+# Generate the rules.
+assoc.rules <- apriori(assoc.trans,
+                       parameter=list(target="rules",
+                                      supp=0.25, conf=0.75,
+                                      minlen=2, maxlen=15))
+
+# Sort by lift.
+rules.by.lift <- head(sort(assoc.rules, by="lift"), 10)
+inspect(rules.by.lift)
+@ 
+
+We see that our \num{10} best rules (in terms of lift) can be used to help us
+predict whether change in diabetes medication should be administered to the
+patient.  We can visualize these rules:
+
+<<plot.by.lift, fig.height=6.3, fig.align='center', cache=FALSE>>=
+plot(rules.by.lift, method="grouped", measure="support", shading="lift")
+@ 
+
+On the other hand, ranking the rules by confidence gives rules which
+tell whether medication is to be administered:
+
+<<rank.by.conf, cache=FALSE>>=
+# Sort by confidence.
+rules.by.conf <- head(sort(assoc.rules, by="confidence"), 10)
+inspect(rules.by.conf)
+@
+
+Note that the lift of these rules is comparably smaller because the event of
+medication being administered appears often in our dataset.  These rules also
+look similar to the ones ranked by lift, as they also pertain to a single
+right-hand size.
+
+<<plot.by.conf, fig.height=6.3, fig.align='center', cache=FALSE>>=
+plot(rules.by.conf, method="grouped", measure="lift", shading="support")
+@ 
+
+We finish off with a visualization of all rules, which shows that there are
+rules which have both high confidence and lift (meaning they are accurate while
+also not being ``common knowledge'').
+
+<<plot.all.rules, fig.height=4.2, fig.align='center', cache=FALSE>>=
+plot(assoc.rules)
+@ 
+
+\section{Conclusion}
+
+The dataset that I have mined shows heavy imbalance in class distribution.  This
+leads to problems in classification.  We observe that despite having solid
+accuracy, the classification algorithms struggle with classifying positive
+observations even if sophisticated upsampling techniques such as SMOTE are
+used.  However, after tuning the algorithms' classification threshold,
+satisfying results are obtained.
+
+Further directions in classification worth exploring include:
+\begin{itemize}
+\item SMOTE likely leads to overfitting.  Thus, it might be worthwhile to look
+  at ensemble-based methods such as random forests and AdaBoost, as they are
+  known to be less susceptible to overfitting.  Additionally one might combine
+  several completely different learners, i.e., naïve Bayes and $k$NN.
+\item Aggressive cross-validation for parameter tuning, e.g., tune even SMOTE's
+  parameters using separate data.
+\item Look at pairwise interactions for adding nonlinearities.
+\end{itemize}
+
+The data does not exhibit well-separated clusters in terms of density (DBSCAN)
+or centroids ($k$-means).  It is unlikely that any clustering technique will
+yield meaningful results, partly due to the nature of the data, partly due to
+the underlying imbalance in class distributions.
+
+Nevertheless, there are meaningful association rules that can be extracted from
+the data.  These rules allow us to draw conclusion regarding medication changes
+or administrations.
+
+Last, but not least, it is safe to say that the data is quite ungainly.  In
+order to tackle the issue, perhaps additional attributes should be measured
+regarding patients.  Unfortunately, there is also the possibility of diabetes
+being too unpredictable to lack any meaningful causal structure.
+
+\printbibliography[heading=bibintoc]
+
+\end{document}

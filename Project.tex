@@ -1,0 +1,1897 @@
+\documentclass{article}\usepackage[]{graphicx}\usepackage[]{color}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+\let\hlipl\hlkwb
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[babel]{microtype}
+\usepackage[a4paper]{geometry}
+\usepackage[svgnames, psnames, x11names]{xcolor}
+\usepackage{mathtools, amsthm, amssymb, xfrac, mathrsfs, cancel, upgreek, bm}
+\usepackage{graphicx, caption, subcaption, blkarray}
+\usepackage[unicode, colorlinks, breaklinks]{hyperref}
+\usepackage[nameinlink]{cleveref}
+\usepackage[detect-all]{siunitx}
+\usepackage{multirow, array, enumitem, booktabs}
+\usepackage[hyperref, backref, backend=biber, style=alphabetic]{biblatex}
+\usepackage{lmodern}
+\usepackage[parfill]{parskip}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\addbibresource{Bibliography.bib}
+
+\hypersetup{%
+  pdfinfo={%
+    Title={Mining the "Diabetes in 130 US Hospitals for Years 1999--2008" Dataset},
+    Subject={Data Mining},
+    Author={Dario Gjorgjevski},
+    Keywords={Data Mining, Visualization, Preprocessing, Classification,
+      Clustering, Decision Trees, Naïve Bayes, k-Nearest Neighbors,
+      DBSCAN, Association Rules}
+  },
+  linkcolor=MediumBlue,
+  urlcolor=DarkCyan,
+  citecolor=ForestGreen
+}
+
+\title{Mining the ``Diabetes in \num{130} US Hospitals for Years 1999--2008'' Dataset}
+\author{Dario Gjorgjevski\\
+  \href{mailto:gjorgjevski.dario@students.finki.ukim.mk}
+  {\texttt{gjorgjevski.dario@students.finki.ukim.mk}}}
+\date{\textit{Final Project in Data Mining} \\[.5\baselineskip] \today}
+
+
+
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+The dataset I will be mining is called ``Diabetes in \num{130} US Hospitals for
+Years 1999--2008''
+(\href{https://archive.ics.uci.edu/ml/datasets/Diabetes+130-US+hospitals+for+years+1999-2008}{UCI
+  repository link}).  The data represents \num{10} years (1999--2008) of
+clinical care at \num{130} US hospitals and integrated delivery networks.  It
+includes over \num{50} attributes representing patient and hospital outcomes.
+Based on the insights from the previous exercises, I will:
+\begin{enumerate}
+\item Perform additional preprocessing;
+\item Use \emph{thresholding} when classifying;
+\item Use (stratified) cross-validation with robust measures (area under ROC
+  curve, $F_1$, etc.) rather than simple train-test splits whenever possible;
+\item Test decision trees for statistically significant difference.
+\end{enumerate}
+
+The attributes of the dataset are as follows:
+\begin{itemize}[noitemsep]
+\item \texttt{encounter\_id} (numeric): Unique identifier of an encounter.
+\item \texttt{patient\_nbr} (numeric): Unique identifier of a patient.
+\item \texttt{race} (nominal): Values: Caucasian, Asian, African American,
+  Hispanic, and other.
+\item \texttt{gender} (nominal): Values: male, female, and unknown/invalid.
+\item \texttt{age} (nominal): Grouped in \num{10}-year intervals:
+  $[0, 10), [10, 20), \ldots, [90, 100)$.
+\item \texttt{weight} (numeric): Weight in pounds.
+\item \texttt{admission\_type\_id} (nominal): Integer identifier corresponding
+  to \num{9} distinct values, e.g., emergency, urgent, elective, newborn, and
+  not available.
+\item \texttt{discharge\_disposition\_id} (nominal): Integer identifier
+  corresponding to \num{29} distinct values, e.g., discharged to home, expired,
+  and not available.
+\item \texttt{admission\_source\_id} (nominal): Integer identifier corresponding
+  to \num{21} distinct values, e.g., physician referral, emergency room, and
+  transfer from a hospital.
+\item \texttt{time\_in\_hospital} (numeric): Integer number of days between
+  admission and discharge.
+\item \texttt{payer\_code} (nominal): Integer identifier corresponding to
+  \num{23} distinct values, e.g., Blue Cross/Blue Shield, Medicare, and
+  self-pay.
+\item \texttt{medical\_speciality} (nominal): Integer identifier of a specialty
+  of the admitting physician, corresponding to \num{84} distinct values, e.g.,
+  cardiology, internal medicine, family/general practice, and surgeon.
+\item \texttt{num\_lab\_procedures} (numeric): Number of lab tests performed
+  during the encounter.
+\item \texttt{num\_procedures} (numeric): Number of procedures performed during
+  the encounter.
+\item \texttt{num\_medications} (numeric): Number of medications administered
+  during the encounter.
+\item \texttt{number\_outpatient} (numeric): Number of outpatient visits of the
+  patient in the year preceding the encounter.
+\item \texttt{number\_emergency} (numeric): Number of emergency visits of the
+  patient in the year preceding the encounter.
+\item \texttt{number\_inpatient} (numeric): Number of inpatient visits of the
+  patient in the year preceding the encounter.
+\item \texttt{diag\_1} (nominal): Primary diagnosis (coded as first three digits
+  of ICD9); \num{848} values.
+\item \texttt{diag\_2} (nominal): Secondary diagnosis (coded as first three
+  digits of ICD9); \num{923} values.
+\item \texttt{diag\_3} (nominal): Additional diagnosis (coded as first three
+  digits of ICD9); \num{954} values.
+\item \texttt{number\_diagnoses} (numeric): Number of diagnoses entered to the
+  system.
+\item \texttt{max\_glu\_serum} (nominal): Indicates the range of the result or
+  if the test was not taken. Values: ``200,'' ``>300,'' ``normal,'' and ``none''
+  if not measured.
+\item \texttt{A1Cresult} (nominal): Indicates the range of the result or if the
+  test was not taken. Values: ``>8'' if the result was greater than
+  \SI{8}{\percent}, ``>7'' if the result was greater than \SI{7}{\percent} but
+  less than \SI{8}{\percent}, ``normal'' if the result was less than
+  \SI{7}{\percent}, and ``none'' if not measured.
+\item \num{24} attributes for medications (nominal): For the generic names:
+  metformin, repaglinide, nateglinide, chlorpropamide, glimepiride,
+  acetohexamide, glipizide, glyburide, tolbutamide, pioglitazone, rosiglitazone,
+  acarbose, miglitol, troglitazone, tolazamide, examide, sitagliptin, insulin,
+  glyburide-metformin, glipizide-metformin, glimepiride-pioglitazone,
+  metformin-rosiglitazone, and metformin-pioglitazone, the feature indicates
+  whether the drug was prescribed or there was a change in the dosage.  Values:
+  ``up'' if the dosage was increased during the encounter, ``down'' if the
+  dosage was decreased, ``steady'' if the dosage did not change, and ``no'' if
+  the drug was not prescribed.
+\item \texttt{change} (nominal): Indicates if there was a change in diabetic
+  medications (either dosage or generic name).  Values: ``change'' and ``no
+  change.''
+\item \texttt{diabetesMed} (nominal): Indicates if there was any diabetic
+  medication prescribed.  Values: ``yes'' and ``no.''
+\item \texttt{readmitted} (nominal): Days to inpatient readmission.  Values:
+  ``<30'' if the patient was readmitted in less than \num{30} days, ``>30'' if
+  the patient was readmitted in more than \num{30} days, and ``No'' for no
+  record of readmission.
+\end{itemize}
+
+The goal is to predict the \texttt{readmitted} attribute, i.e., whether a
+readmission will occur.  In particular, I will focus on \emph{early} readmission
+(less than \num{30} days).  In order to do so, the following steps will be
+performed:
+\begin{enumerate}
+\item Preprocessing and visualization (\cref{sec:preprocess-and-visualize});
+\item Classification using decision trees, naïve Bayes, and $k$-nearest
+  neighbors (\cref{sec:classify});
+\item Clustering using $k$-means and DBSCAN (\cref{sec:cluster});
+\item Association rule mining using the apriori algorithm
+  (\cref{sec:associate}).
+\end{enumerate}
+
+\section{Preprocessing and visualization}\label{sec:preprocess-and-visualize}
+In this section I will take a preliminary look into the data, preprocess it, and
+provide some insights through various visualizations.
+
+\subsection{Reading the data}
+
+I will begin by reading the dataset from the provided CSV file.  Additionally,
+the \texttt{encounter\_id} and \texttt{patient\_nbr} attributes will be dropped
+as they are unique among patients.  Alternative approaches in literature
+(\autocite{Str+14}) include keeping only \emph{first} encounters.  NA values are
+denoted by question marks (\texttt{?}) in the dataset.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{set.seed}\hlstd{(}\hlnum{13}\hlstd{)}  \hlcom{# The seed is needed for reproducibility purposes.}
+\hlstd{df} \hlkwb{<-} \hlkwd{read.csv}\hlstd{(}\hlstr{"diabetic_data.csv"}\hlstd{,} \hlkwc{na.strings}\hlstd{=}\hlstr{"?"}\hlstd{)}     \hlcom{# Read the data.}
+\hlstd{df} \hlkwb{<-} \hlkwd{subset}\hlstd{(df,} \hlkwc{select}\hlstd{=}\hlopt{-}\hlkwd{c}\hlstd{(encounter_id, patient_nbr))}  \hlcom{# Drop unique ID's.}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+IDs which have the meaning of nominal attributes, i.e., those present in the
+\texttt{IDs\_mapping.csv} file will be converted to factors as that is what they
+represent.
+
+As already mentioned, I will be focusing on \emph{early} readmission, so a
+patient will be considered readmitted if and only if he/she was readmitted
+within \num{30} days.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{df} \hlkwb{<-} \hlkwd{transform}\hlstd{(df,} \hlkwc{admission_type_id}\hlstd{=}\hlkwd{as.factor}\hlstd{(admission_type_id),}
+                \hlkwc{discharge_disposition_id}\hlstd{=}\hlkwd{as.factor}\hlstd{(discharge_disposition_id),}
+                \hlkwc{admission_source_id}\hlstd{=}\hlkwd{as.factor}\hlstd{(admission_source_id),}
+                \hlkwc{readmitted}\hlstd{=}\hlkwd{as.factor}\hlstd{(}\hlkwd{ifelse}\hlstd{(readmitted} \hlopt{==} \hlstr{"<30"}\hlstd{,} \hlstr{"Readmitted"}\hlstd{,} \hlstr{"Other"}\hlstd{)))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Let us now summarize the dataset in its present form:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{str}\hlstd{(df,} \hlkwc{width}\hlstd{=}\hlnum{75}\hlstd{,} \hlkwc{strict.width}\hlstd{=}\hlstr{"cut"}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## 'data.frame':	101766 obs. of  48 variables:
+##  $ race                    : Factor w/ 5 levels "AfricanAmerican",..: 3 3..
+##  $ gender                  : Factor w/ 3 levels "Female","Male",..: 1 1 1..
+##  $ age                     : Factor w/ 10 levels "[0-10)","[10-20)",..: 1..
+##  $ weight                  : Factor w/ 9 levels "[0-25)","[100-125)",..: ..
+##  $ admission_type_id       : Factor w/ 8 levels "1","2","3","4",..: 6 1 1..
+##  $ discharge_disposition_id: Factor w/ 26 levels "1","2","3","4",..: 24 1..
+##  $ admission_source_id     : Factor w/ 17 levels "1","2","3","4",..: 1 7 ..
+##  $ time_in_hospital        : int  1 3 2 2 1 3 4 5 13 12 ...
+##  $ payer_code              : Factor w/ 17 levels "BC","CH","CM",..: NA NA..
+##  $ medical_specialty       : Factor w/ 72 levels "AllergyandImmunology",...
+##  $ num_lab_procedures      : int  41 59 11 44 51 31 70 73 68 33 ...
+##  $ num_procedures          : int  0 0 5 1 0 6 1 0 2 3 ...
+##  $ num_medications         : int  1 18 13 16 8 16 21 12 28 18 ...
+##  $ number_outpatient       : int  0 0 2 0 0 0 0 0 0 0 ...
+##  $ number_emergency        : int  0 0 0 0 0 0 0 0 0 0 ...
+##  $ number_inpatient        : int  0 0 1 0 0 0 0 0 0 0 ...
+##  $ diag_1                  : Factor w/ 716 levels "10","11","110",..: 125..
+##  $ diag_2                  : Factor w/ 748 levels "11","110","111",..: NA..
+##  $ diag_3                  : Factor w/ 789 levels "11","110","111",..: NA..
+##  $ number_diagnoses        : int  1 9 6 7 5 9 7 8 8 8 ...
+##  $ max_glu_serum           : Factor w/ 4 levels ">200",">300",..: 3 3 3 3..
+##  $ A1Cresult               : Factor w/ 4 levels ">7",">8","None",..: 3 3 ..
+##  $ metformin               : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ repaglinide             : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ nateglinide             : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ chlorpropamide          : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ glimepiride             : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ acetohexamide           : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ glipizide               : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ glyburide               : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ tolbutamide             : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ pioglitazone            : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ rosiglitazone           : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ acarbose                : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ miglitol                : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ troglitazone            : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ tolazamide              : Factor w/ 3 levels "No","Steady",..: 1 1 1 1..
+##  $ examide                 : Factor w/ 1 level "No": 1 1 1 1 1 1 1 1 1 1 ..
+##  $ citoglipton             : Factor w/ 1 level "No": 1 1 1 1 1 1 1 1 1 1 ..
+##  $ insulin                 : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ glyburide.metformin     : Factor w/ 4 levels "Down","No","Steady",..: ..
+##  $ glipizide.metformin     : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ glimepiride.pioglitazone: Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ metformin.rosiglitazone : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ metformin.pioglitazone  : Factor w/ 2 levels "No","Steady": 1 1 1 1 1 ..
+##  $ change                  : Factor w/ 2 levels "Ch","No": 2 1 2 1 1 2 1 ..
+##  $ diabetesMed             : Factor w/ 2 levels "No","Yes": 1 2 2 2 2 2 2..
+##  $ readmitted              : Factor w/ 2 levels "Other","Readmitted": 1 1..
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+\subsection{Imputation}
+
+Since there are attributes with missing values, the first preprocessing step
+I'll do is to impute those attributes.  Let's look at the percentages of values
+that are missing:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{percent.missing} \hlkwb{<-} \hlkwd{colMeans}\hlstd{(}\hlkwd{is.na}\hlstd{(df))}
+\hlkwd{names}\hlstd{(percent.missing)} \hlkwb{<-} \hlkwd{colnames}\hlstd{(df)}
+\hlstd{percent.missing}
+\end{alltt}
+\begin{verbatim}
+##                     race                   gender                      age 
+##             0.0223355541             0.0000000000             0.0000000000 
+##                   weight        admission_type_id discharge_disposition_id 
+##             0.9685847926             0.0000000000             0.0000000000 
+##      admission_source_id         time_in_hospital               payer_code 
+##             0.0000000000             0.0000000000             0.3955741603 
+##        medical_specialty       num_lab_procedures           num_procedures 
+##             0.4908220820             0.0000000000             0.0000000000 
+##          num_medications        number_outpatient         number_emergency 
+##             0.0000000000             0.0000000000             0.0000000000 
+##         number_inpatient                   diag_1                   diag_2 
+##             0.0000000000             0.0002063558             0.0035178743 
+##                   diag_3         number_diagnoses            max_glu_serum 
+##             0.0139830592             0.0000000000             0.0000000000 
+##                A1Cresult                metformin              repaglinide 
+##             0.0000000000             0.0000000000             0.0000000000 
+##              nateglinide           chlorpropamide              glimepiride 
+##             0.0000000000             0.0000000000             0.0000000000 
+##            acetohexamide                glipizide                glyburide 
+##             0.0000000000             0.0000000000             0.0000000000 
+##              tolbutamide             pioglitazone            rosiglitazone 
+##             0.0000000000             0.0000000000             0.0000000000 
+##                 acarbose                 miglitol             troglitazone 
+##             0.0000000000             0.0000000000             0.0000000000 
+##               tolazamide                  examide              citoglipton 
+##             0.0000000000             0.0000000000             0.0000000000 
+##                  insulin      glyburide.metformin      glipizide.metformin 
+##             0.0000000000             0.0000000000             0.0000000000 
+## glimepiride.pioglitazone  metformin.rosiglitazone   metformin.pioglitazone 
+##             0.0000000000             0.0000000000             0.0000000000 
+##                   change              diabetesMed               readmitted 
+##             0.0000000000             0.0000000000             0.0000000000
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+The \texttt{weight} attribute is not present in more than \SI{95}{\percent} of
+the observation, whereas the medical specialty and payer code attributes are not
+present in around \SI{40}{\percent} of the observations each.  Such attributes
+will not be of much use to our data mining tasks, and imputing them can lead to
+meaningless values.  Because of this, they will be dropped.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{df} \hlkwb{<-} \hlkwd{subset}\hlstd{(df,} \hlkwc{select}\hlstd{=}\hlopt{-}\hlkwd{c}\hlstd{(weight, medical_specialty, payer_code))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+For the remaining attributes, the imputation strategy will be:
+\begin{itemize}
+\item Numeric values will be imputed by their means;
+\item Non-numeric values will be imputed by random sampling with replacement
+  from the available values.
+\end{itemize}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#' Imputation of numeric attributes by mean and of non-numeric by SWR.}
+\hlstd{impute.missing} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{attr}\hlstd{) \{}
+    \hlkwa{if} \hlstd{(}\hlkwd{is.numeric}\hlstd{(attr))}  \hlcom{# Numeric.}
+        \hlstd{attr[}\hlkwd{is.na}\hlstd{(attr)]} \hlkwb{<-} \hlkwd{mean}\hlstd{(attr,} \hlkwc{na.rm}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+    \hlkwa{else}  \hlcom{# Non-numeric.}
+        \hlstd{attr[}\hlkwd{is.na}\hlstd{(attr)]} \hlkwb{<-} \hlkwd{sample}\hlstd{(attr[}\hlopt{!}\hlkwd{is.na}\hlstd{(attr)],}
+                                    \hlkwc{size}\hlstd{=}\hlkwd{length}\hlstd{(attr[}\hlkwd{is.na}\hlstd{(attr)]),} \hlkwc{replace}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+    \hlstd{attr}
+\hlstd{\}}
+
+\hlstd{df} \hlkwb{<-} \hlkwd{data.frame}\hlstd{(}\hlkwd{lapply}\hlstd{(df, impute.missing))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\subsection{Grouping of nominal attributes}
+
+\autocite{Str+14} suggest that nominal attributes with many levels be grouped
+together.  This greatly reduces the complexity of the task without inflicting a
+huge loss on the learning algorithms.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#' Grouping of diagnoses.}
+\hlcom{#' Diagnoses related to similar organs are grouped together (IC9 codes).}
+\hlcom{#' See http://www.hindawi.com/journals/bmri/2014/781670/tab3/}
+\hlstd{group.diags} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{diags}\hlstd{) \{}
+    \hlstd{diags} \hlkwb{<-} \hlkwd{as.character}\hlstd{(diags)}
+    \hlkwd{factor}\hlstd{(}\hlkwd{sapply}\hlstd{(diags,} \hlkwa{function} \hlstd{(}\hlkwc{diag}\hlstd{) \{}
+        \hlkwa{if} \hlstd{(}\hlopt{!}\hlkwd{is.na}\hlstd{(}\hlkwd{suppressWarnings}\hlstd{(}\hlkwd{as.numeric}\hlstd{(diag)))) \{}
+            \hlstd{diag} \hlkwb{<-} \hlkwd{as.numeric}\hlstd{(diag)}
+            \hlkwa{if} \hlstd{((diag} \hlopt{>=} \hlnum{390} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{459}\hlstd{)} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{785}\hlstd{)}
+                \hlstr{"Circulatory"}
+            \hlkwa{else if} \hlstd{((diag} \hlopt{>=} \hlnum{460} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{519}\hlstd{)} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{786}\hlstd{)}
+                \hlstr{"Respiratory"}
+            \hlkwa{else if} \hlstd{((diag} \hlopt{>=} \hlnum{520} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{579}\hlstd{)} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{787}\hlstd{)}
+                \hlstr{"Digestive"}
+            \hlkwa{else if} \hlstd{(diag} \hlopt{>=} \hlnum{250} \hlopt{&&} \hlstd{diag} \hlopt{<} \hlnum{251}\hlstd{)}
+                \hlstr{"Diabetes"}
+            \hlkwa{else if} \hlstd{(diag} \hlopt{>=} \hlnum{800} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{999}\hlstd{)}
+                \hlstr{"Injury"}
+            \hlkwa{else if} \hlstd{(diag} \hlopt{>=} \hlnum{710} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{739}\hlstd{)}
+                \hlstr{"Musculoskeletal"}
+            \hlkwa{else if} \hlstd{((diag} \hlopt{>=} \hlnum{580} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{629}\hlstd{)} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{788}\hlstd{)}
+                \hlstr{"Genitourinary"}
+            \hlkwa{else if} \hlstd{((diag} \hlopt{>=} \hlnum{140} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{239}\hlstd{)} \hlopt{||}
+                     \hlstd{diag} \hlopt{==} \hlnum{780} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{781} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{784} \hlopt{||}
+                     \hlstd{(diag} \hlopt{>=} \hlnum{240} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{279}\hlstd{)} \hlopt{||}
+                     \hlstd{(diag} \hlopt{>=} \hlnum{680} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{709}\hlstd{)} \hlopt{||} \hlstd{diag} \hlopt{==} \hlnum{782} \hlopt{||}
+                     \hlstd{(diag} \hlopt{>=} \hlnum{1} \hlopt{&&} \hlstd{diag} \hlopt{<=} \hlnum{139}\hlstd{))}
+                \hlstr{"Neoplasms"}
+            \hlkwa{else}
+                \hlstr{"Other"}
+        \hlstd{\}} \hlkwa{else} \hlstd{\{}
+            \hlstr{"Other"}
+        \hlstd{\}}
+    \hlstd{\}),}
+    \hlkwc{levels}\hlstd{=}\hlkwd{c}\hlstd{(}\hlstr{"Circulatory"}\hlstd{,} \hlstr{"Respiratory"}\hlstd{,} \hlstr{"Digestive"}\hlstd{,} \hlstr{"Diabetes"}\hlstd{,} \hlstr{"Injury"}\hlstd{,}
+             \hlstr{"Musculoskeletal"}\hlstd{,} \hlstr{"Genitourinary"}\hlstd{,} \hlstr{"Neoplasms"}\hlstd{,} \hlstr{"Other"}\hlstd{),}
+    \hlkwc{ordered}\hlstd{=}\hlnum{FALSE}\hlstd{)}
+\hlstd{\}}
+
+\hlcom{#' Grouping of ages, discharges, and admissions.}
+\hlcom{#' The grouping is done based on distributional properties of readmission.}
+\hlcom{#' See http://www.hindawi.com/journals/bmri/2014/781670/tab3/}
+\hlstd{group.ages} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{ages}\hlstd{) \{}
+    \hlkwd{levels}\hlstd{(ages)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlkwd{rep}\hlstd{(}\hlstr{"[0-30)"}\hlstd{,} \hlnum{3}\hlstd{),} \hlkwd{rep}\hlstd{(}\hlstr{"[30-60)"}\hlstd{,} \hlnum{3}\hlstd{),} \hlkwd{rep}\hlstd{(}\hlstr{"[60-100)"}\hlstd{,} \hlnum{4}\hlstd{))}
+    \hlstd{ages}
+\hlstd{\}}
+
+\hlstd{group.discharges} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{discharges}\hlstd{) \{}
+    \hlkwd{levels}\hlstd{(discharges)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"To home"}\hlstd{,} \hlkwd{rep}\hlstd{(}\hlstr{"Other"}\hlstd{,} \hlnum{29}\hlstd{)); discharges}
+\hlstd{\}}
+
+\hlstd{group.admissions} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{admission.sources}\hlstd{) \{}
+    \hlkwd{levels}\hlstd{(admission.sources)} \hlkwb{<-}
+        \hlkwd{c}\hlstd{(}\hlstr{"Because of physician/clinic referral"}\hlstd{,} \hlkwd{rep}\hlstd{(}\hlstr{"Other"}\hlstd{,} \hlnum{4}\hlstd{),}
+          \hlstr{"From emergency room"}\hlstd{,} \hlkwd{rep}\hlstd{(}\hlstr{"Other"}\hlstd{,} \hlnum{18}\hlstd{)); admission.sources}
+\hlstd{\}}
+
+\hlstd{df} \hlkwb{<-} \hlkwd{transform}\hlstd{(df,} \hlkwc{diag_1}\hlstd{=}\hlkwd{group.diags}\hlstd{(diag_1),} \hlkwc{diag_2}\hlstd{=}\hlkwd{group.diags}\hlstd{(diag_2),}
+                \hlkwc{diag_3}\hlstd{=}\hlkwd{group.diags}\hlstd{(diag_3),} \hlkwc{age}\hlstd{=}\hlkwd{group.ages}\hlstd{(age),}
+                \hlkwc{discharge_disposition_id}\hlstd{=}\hlkwd{group.discharges}\hlstd{(discharge_disposition_id),}
+                \hlkwc{admission_source_id}\hlstd{=}\hlkwd{group.admissions}\hlstd{(admission_source_id))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\subsection{Outlier removal}
+
+Outliers are associated to values outside interquartile ranges.  More
+specifically, I will consider as an outlier everything outside of the
+\begin{equation}
+  [\mathrm{Q1} - 1.75 \cdot \mathrm{IQR}, \mathrm{Q3} + 1.75 \cdot \mathrm{IQR}]
+\end{equation}
+range, where $\mathrm{Q1}$ is the first, $\mathrm{Q3}$ the third quartile, and
+$\mathrm{IQR}$ the interquartile range.  Note that many people use \num{1.5}
+instead of \num{1.75}, but I will relax that condition.
+
+Boxplots are associated to quartiles, so let's analyze the boxplots of numeric attributes.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{par}\hlstd{(}\hlkwc{mfrow}\hlstd{=}\hlkwd{c}\hlstd{(}\hlnum{1}\hlstd{,} \hlnum{2}\hlstd{))}
+\hlkwa{for} \hlstd{(name} \hlkwa{in} \hlkwd{colnames}\hlstd{(df[}\hlkwd{sapply}\hlstd{(df, is.numeric)]))}
+    \hlkwd{boxplot}\hlstd{(df[[name]],} \hlkwc{range}\hlstd{=}\hlnum{1.75}\hlstd{,} \hlkwc{main}\hlstd{=name)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/boxplots-1} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/boxplots-2} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/boxplots-3} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/boxplots-4} 
+
+}
+
+
+
+\end{knitrout}
+
+The boxplots shows the presence of outliers -- values far outside of the
+whiskers.  Let's drop them.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwa{for} \hlstd{(name} \hlkwa{in} \hlkwd{colnames}\hlstd{(df[}\hlkwd{sapply}\hlstd{(df, is.numeric)])) \{}
+    \hlstd{stats} \hlkwb{<-} \hlkwd{boxplot.stats}\hlstd{(df[[name]],} \hlkwc{coef}\hlstd{=}\hlnum{1.75}\hlstd{,} \hlkwc{do.conf}\hlstd{=}\hlnum{FALSE}\hlstd{)}
+    \hlcom{# stats$out contains outlier values}
+    \hlstd{df} \hlkwb{<-} \hlstd{df[}\hlopt{!}\hlstd{(df[[name]]} \hlopt{%in%} \hlstd{stats}\hlopt{$}\hlstd{out), ]}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\subsection{Attribute cleaning}
+
+The first cleaning step I'll perform is to drop attributes whose variance is
+\emph{close to zero}.  Such attributes will not be of much use to our data
+mining tasks, as they provide little to no information.  Upon inspection it can
+be seen that such attributes will include \texttt{glyburide.metformin} and
+similar nominal attributes.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{nzv.info} \hlkwb{<-} \hlkwd{nzv}\hlstd{(df,} \hlkwc{saveMetrics}\hlstd{=}\hlnum{TRUE}\hlstd{)}  \hlcom{# Check for near-zero variance.}
+\hlstd{nzv.info}
+\end{alltt}
+\begin{verbatim}
+##                             freqRatio percentUnique zeroVar   nzv
+## race                         3.756572   0.007295223   FALSE FALSE
+## gender                       1.161646   0.004377134   FALSE FALSE
+## age                          2.264239   0.004377134   FALSE FALSE
+## admission_type_id            2.929000   0.011672357   FALSE FALSE
+## discharge_disposition_id     1.559202   0.002918089   FALSE FALSE
+## admission_source_id          2.391497   0.004377134   FALSE FALSE
+## time_in_hospital             1.024570   0.018967580   FALSE FALSE
+## num_lab_procedures           1.122239   0.148822551   FALSE FALSE
+## num_procedures               2.288034   0.008754268   FALSE FALSE
+## num_medications              1.017878   0.053984651   FALSE FALSE
+## number_outpatient            0.000000   0.001459045    TRUE  TRUE
+## number_emergency             0.000000   0.001459045    TRUE  TRUE
+## number_inpatient             4.022469   0.004377134   FALSE FALSE
+## diag_1                       1.909288   0.013131402   FALSE FALSE
+## diag_2                       1.678901   0.013131402   FALSE FALSE
+## diag_3                       1.645912   0.013131402   FALSE FALSE
+## number_diagnoses             3.277051   0.020426625   FALSE FALSE
+## max_glu_serum               45.360996   0.005836178   FALSE  TRUE
+## A1Cresult                    9.610363   0.005836178   FALSE FALSE
+## metformin                    4.260428   0.005836178   FALSE FALSE
+## repaglinide                 79.709906   0.005836178   FALSE  TRUE
+## nateglinide                161.736342   0.005836178   FALSE  TRUE
+## chlorpropamide            1069.828125   0.005836178   FALSE  TRUE
+## glimepiride                 20.501104   0.005836178   FALSE  TRUE
+## acetohexamide                0.000000   0.001459045    TRUE  TRUE
+## glipizide                    7.875246   0.005836178   FALSE FALSE
+## glyburide                    9.381318   0.005836178   FALSE FALSE
+## tolbutamide               3606.263158   0.002918089   FALSE  TRUE
+## pioglitazone                14.134943   0.005836178   FALSE FALSE
+## rosiglitazone               15.743571   0.005836178   FALSE FALSE
+## acarbose                   402.111765   0.004377134   FALSE  TRUE
+## miglitol                  3114.318182   0.004377134   FALSE  TRUE
+## troglitazone             22845.000000   0.002918089   FALSE  TRUE
+## tolazamide                2014.794118   0.004377134   FALSE  TRUE
+## examide                      0.000000   0.001459045    TRUE  TRUE
+## citoglipton                  0.000000   0.001459045    TRUE  TRUE
+## insulin                      1.562386   0.005836178   FALSE FALSE
+## glyburide.metformin        140.881988   0.005836178   FALSE  TRUE
+## glipizide.metformin      11422.000000   0.002918089   FALSE  TRUE
+## glimepiride.pioglitazone 68537.000000   0.002918089   FALSE  TRUE
+## metformin.rosiglitazone  68537.000000   0.002918089   FALSE  TRUE
+## metformin.pioglitazone   68537.000000   0.002918089   FALSE  TRUE
+## change                       1.281102   0.002918089   FALSE FALSE
+## diabetesMed                  3.095733   0.002918089   FALSE FALSE
+## readmitted                   9.449459   0.002918089   FALSE FALSE
+\end{verbatim}
+\begin{alltt}
+\hlstd{df} \hlkwb{<-} \hlstd{df[,} \hlopt{!}\hlstd{nzv.info}\hlopt{$}\hlstd{nzv]}  \hlcom{# Drop any attributes with near-zero variance.}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Next, I will analyze the correlations
+(\href{https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient}{Pearson's
+  $r$ coefficient}) between numeric attributes.  High correlation means linear
+dependence between attributes, or, in other words, redundancy.  Such redundancy
+will only slow our algorithms down without making them any better (sometimes it
+might even make them worse).
+
+The correlations will be tested for statistical significance.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#' p-value and confidence interval estimation for correlation matrices.}
+\hlstd{cor.mat.test} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{cor.mat}\hlstd{,} \hlkwc{conf.level}\hlstd{=}\hlnum{0.95}\hlstd{) \{}
+    \hlstd{cor.mat} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(cor.mat)}
+    \hlstd{n} \hlkwb{<-} \hlkwd{ncol}\hlstd{(cor.mat)}
+    \hlstd{p.mat} \hlkwb{<-} \hlstd{lowCI.mat} \hlkwb{<-} \hlstd{uppCI.mat} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{, n, n)}
+    \hlkwd{diag}\hlstd{(p.mat)} \hlkwb{<-} \hlnum{0}
+    \hlkwd{diag}\hlstd{(lowCI.mat)} \hlkwb{<-} \hlkwd{diag}\hlstd{(uppCI.mat)} \hlkwb{<-} \hlnum{1}
+    \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlnum{1}\hlopt{:}\hlstd{(n} \hlopt{-} \hlnum{1}\hlstd{)) \{}
+        \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlstd{(i} \hlopt{+} \hlnum{1}\hlstd{)}\hlopt{:}\hlstd{n) \{}
+            \hlstd{tmp} \hlkwb{<-} \hlkwd{cor.test}\hlstd{(cor.mat[, i], cor.mat[, j],} \hlkwc{conf.level}\hlstd{=conf.level)}
+            \hlstd{p.mat[i, j]} \hlkwb{<-} \hlstd{p.mat[j, i]} \hlkwb{<-} \hlstd{tmp}\hlopt{$}\hlstd{p.value}
+            \hlstd{lowCI.mat[i, j]} \hlkwb{<-} \hlstd{lowCI.mat[j, i]} \hlkwb{<-} \hlstd{tmp}\hlopt{$}\hlstd{conf.int[}\hlnum{1}\hlstd{]}
+            \hlstd{uppCI.mat[i, j]} \hlkwb{<-} \hlstd{uppCI.mat[j, i]} \hlkwb{<-} \hlstd{tmp}\hlopt{$}\hlstd{conf.int[}\hlnum{2}\hlstd{]}
+        \hlstd{\}}
+    \hlstd{\}}
+    \hlkwd{list}\hlstd{(}\hlkwc{p.mat}\hlstd{=p.mat,} \hlkwc{lowCI.mat}\hlstd{=lowCI.mat,} \hlkwc{uppCI.mat}\hlstd{=uppCI.mat)}
+\hlstd{\}}
+
+\hlstd{cor.mat} \hlkwb{<-} \hlkwd{cor}\hlstd{(df[}\hlkwd{sapply}\hlstd{(df, is.numeric)],} \hlkwc{method}\hlstd{=}\hlstr{"pearson"}\hlstd{); cor.mat}
+\end{alltt}
+\begin{verbatim}
+##                    time_in_hospital num_lab_procedures num_procedures
+## time_in_hospital          1.0000000        0.296154442    0.149418746
+## num_lab_procedures        0.2961544        1.000000000    0.004343638
+## num_procedures            0.1494187        0.004343638    1.000000000
+## num_medications           0.4228224        0.217371384    0.299407591
+## number_inpatient          0.0838182        0.032548571   -0.040495053
+## number_diagnoses          0.2174980        0.130352844    0.053274185
+##                    num_medications number_inpatient number_diagnoses
+## time_in_hospital        0.42282243       0.08381820       0.21749801
+## num_lab_procedures      0.21737138       0.03254857       0.13035284
+## num_procedures          0.29940759      -0.04049505       0.05327419
+## num_medications         1.00000000       0.06448034       0.27846171
+## number_inpatient        0.06448034       1.00000000       0.10289994
+## number_diagnoses        0.27846171       0.10289994       1.00000000
+\end{verbatim}
+\begin{alltt}
+\hlkwd{corrplot}\hlstd{(cor.mat,} \hlkwc{p.mat}\hlstd{=}\hlkwd{cor.mat.test}\hlstd{(cor.mat)}\hlopt{$}\hlstd{p.mat,} \hlkwc{insig}\hlstd{=}\hlstr{"p-value"}\hlstd{,} \hlkwc{sig.level}\hlstd{=}\hlnum{0.05}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/analyze_cor-1} 
+
+}
+
+
+
+\end{knitrout}
+
+There are not any highly correlated attributes, which is a good sign.
+Reassuringly, the $p$-values are high enough and support the null hypothesis
+that the correlations are \num{0}.  The highest correlations are exhibited by
+attributes related to hospital stay and medications (as expected -- longer stays
+usually lead to more medication), but both are less than \num{0.5}.
+
+\subsection{Transformation}
+
+Numeric attributes should be analyzed for \emph{skew} in their distributions.
+Skews are generally undesirable and should be corrected via numeric
+transformations.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{par}\hlstd{(}\hlkwc{mfrow}\hlstd{=}\hlkwd{c}\hlstd{(}\hlnum{3}\hlstd{,} \hlnum{2}\hlstd{))}
+\hlkwa{for} \hlstd{(name} \hlkwa{in} \hlkwd{colnames}\hlstd{(df[}\hlkwd{sapply}\hlstd{(df, is.numeric)]))}
+    \hlkwd{hist}\hlstd{(df[[name]],} \hlkwc{main}\hlstd{=name,} \hlkwc{xlab}\hlstd{=}\hlstr{"Value"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/histograms-1} 
+
+}
+
+
+
+\end{knitrout}
+
+It can be seen that some attributes have skewed distributions, so in addition to
+\emph{centering} and \emph{scaling} I will perform a Box--Cox
+transformation\footnote{A so-called
+  \href{https://en.wikipedia.org/wiki/Power_transform}{power
+    transform.}}~\autocite{BC64} of the data, which is useful in correcting
+skewed distributions.  Centering and scaling together are also called z-score
+normalization.
+
+More importantly, note that the class distribution is very imbalanced, i.e.,
+there are very few positive observations compared to negative.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{table}\hlstd{(df}\hlopt{$}\hlstd{readmitted)}
+\end{alltt}
+\begin{verbatim}
+## 
+##      Other Readmitted 
+##      61979       6559
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+To attempt to compensate for this, I will use a hybrid oversampling technique
+called SMOTE~\autocite{Cha+02}.  SMOTE oversamples the minority class by
+synthesizing new observations.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{#' Wrap a mlr learning algorithm in a SMOTE preprocessor that boosts}
+\hlcom{#' the minority class by a rate of 5 and considers 10 nearest-neighbors}
+\hlcom{#' when synthesizing observations.}
+\hlcom{#' Additionally, perform centering, scaling, and Box--Cox transformation.}
+\hlstd{wrap.learner} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{base.learner}\hlstd{)}
+    \hlkwd{makePreprocWrapperCaret}\hlstd{(}\hlkwd{makeSMOTEWrapper}\hlstd{(base.learner,} \hlkwc{sw.rate}\hlstd{=}\hlnum{5}\hlstd{,} \hlkwc{sw.nn}\hlstd{=}\hlnum{10}\hlstd{),}
+                            \hlkwc{ppc.center}\hlstd{=}\hlnum{TRUE}\hlstd{,} \hlkwc{ppc.scale}\hlstd{=}\hlnum{TRUE}\hlstd{,} \hlkwc{ppc.BoxCox}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+There is no point in further dimensionality reduction as PCA analysis shows that
+we need to retain all components in order to capture a significant portion of
+the variance.
+
+\subsection{Visualization}
+
+An interesting concept to explore is whether patients receive roughly the same
+amount of medical care regardless of race.  We can do this by overlaying race
+information on top of histograms.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwa{for} \hlstd{(name} \hlkwa{in} \hlkwd{colnames}\hlstd{(df[}\hlkwd{sapply}\hlstd{(df, is.numeric)])) \{}
+    \hlstd{attr} \hlkwb{<-} \hlstd{df[[name]]}
+    \hlstd{breaks} \hlkwb{<-} \hlkwd{pretty}\hlstd{(}\hlkwd{range}\hlstd{(attr,} \hlkwc{n}\hlstd{=}\hlkwd{nclass.Sturges}\hlstd{(attr),} \hlkwc{min.n}\hlstd{=}\hlnum{1}\hlstd{))}
+    \hlkwd{print}\hlstd{(}\hlkwd{ggplot}\hlstd{(df,} \hlkwd{aes_q}\hlstd{(}\hlkwc{x}\hlstd{=}\hlkwd{as.name}\hlstd{(name)))} \hlopt{+}
+          \hlkwd{stat_bin}\hlstd{(}\hlkwd{aes}\hlstd{(}\hlkwc{y}\hlstd{=..density..,} \hlkwc{fill}\hlstd{=race),} \hlkwc{breaks}\hlstd{=breaks))}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-1} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-2} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-3} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-4} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-5} 
+
+}
+
+
+
+
+{\centering \includegraphics[width=\maxwidth]{figure/race_equality-6} 
+
+}
+
+
+
+\end{knitrout}
+
+It can be seen that the densities are very uniform, i.e., each person gets
+roughly the same amount of medical care no matter what his/her race is.
+\emph{However}, a boxplot shows that Caucasian patients receive at the median
+more diagnoses than do other patients.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{ggplot}\hlstd{(df,} \hlkwd{aes}\hlstd{(}\hlkwc{x}\hlstd{=race,} \hlkwc{y}\hlstd{=number_diagnoses))} \hlopt{+} \hlkwd{geom_boxplot}\hlstd{(}\hlkwd{aes}\hlstd{(}\hlkwc{fill}\hlstd{=race))}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/caucasian_number_diagnoses-1} 
+
+}
+
+
+
+\end{knitrout}
+
+We are now free to continue with classification, clustering, and association
+rule mining.
+
+\section{Classification}\label{sec:classify}
+
+Classification will be performed using decision trees, naïve Bayes, and
+$k$-nearest neighbors.
+
+Whenever possible, algorithms will be set to predict \emph{probabilities} rather
+than classes, i.e., the probability that a certain observation belongs to a
+given class.  This allows \emph{thresholding} and \emph{ROC analysis} to be
+performed.
+
+Our go-to measures of goodness will be the area under the ROC curve and the
+$F_1$ score.  The $F_1$ score is defined as
+\begin{equation*}
+  F_1 = 2 \cdot \frac{\mathrm{precision} \cdot
+    \mathrm{recall}}{\mathrm{precision} + \mathrm{recall}}\text{.}
+\end{equation*}
+
+When thresholding, I will use a personally defined measure (denoted
+$\mathrm{bm}$) as a ``balanced'' score between accuracy and $F_1$:
+\begin{equation}\label{eq:bm}
+  \mathrm{bm} = \frac{\mathrm{accuracy} + 2 \cdot F_1}{3}\text{.}
+\end{equation}
+
+The code to create the \texttt{mlr} classification task, resampling strategy,
+and balanced measure follows:
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Classification task creation.}
+\hlstd{classif.task} \hlkwb{<-} \hlkwd{makeClassifTask}\hlstd{(}
+    \hlkwc{data}\hlstd{=df,} \hlkwc{target}\hlstd{=}\hlstr{"readmitted"}\hlstd{,} \hlkwc{positive}\hlstd{=}\hlstr{"Readmitted"}\hlstd{)}
+
+\hlcom{# 5-fold startified x-val for performance measurement.}
+\hlstd{classif.rdesc} \hlkwb{<-} \hlkwd{makeResampleDesc}\hlstd{(}\hlstr{"CV"}\hlstd{,} \hlkwc{iters}\hlstd{=}\hlnum{5}\hlstd{,} \hlkwc{stratify}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+
+\hlcom{# Train and test sets.}
+\hlstd{classif.n} \hlkwb{<-} \hlkwd{getTaskSize}\hlstd{(classif.task)}
+\hlstd{classif.train} \hlkwb{<-} \hlkwd{sample}\hlstd{(classif.n,} \hlkwc{size}\hlstd{=}\hlkwd{round}\hlstd{(}\hlnum{4}\hlopt{/}\hlnum{5} \hlopt{*} \hlstd{classif.n))}
+\hlstd{classif.test} \hlkwb{<-} \hlkwd{setdiff}\hlstd{(}\hlkwd{seq_len}\hlstd{(classif.n), classif.train)}
+
+\hlcom{# Balanced measure.}
+\hlstd{bm} \hlkwb{<-} \hlkwd{makeMeasure}\hlstd{(}\hlkwc{id}\hlstd{=}\hlstr{"bm"}\hlstd{,} \hlkwc{name}\hlstd{=}\hlstr{"Balanced measure"}\hlstd{,}
+                  \hlkwc{properties}\hlstd{=}\hlkwd{c}\hlstd{(}\hlstr{"classif"}\hlstd{,} \hlstr{"req.pred"}\hlstd{,} \hlstr{"req.truth"}\hlstd{),}
+                  \hlkwc{minimize}\hlstd{=}\hlnum{FALSE}\hlstd{,} \hlkwc{worst}\hlstd{=}\hlnum{0}\hlstd{,} \hlkwc{best}\hlstd{=}\hlnum{1}\hlstd{,}
+                  \hlkwc{fun}\hlstd{=}\hlkwa{function} \hlstd{(}\hlkwc{...}\hlstd{) (acc}\hlopt{$}\hlkwd{fun}\hlstd{(...)} \hlopt{+} \hlnum{2} \hlopt{*} \hlstd{f1}\hlopt{$}\hlkwd{fun}\hlstd{(...))} \hlopt{/} \hlnum{3}\hlstd{)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\subsection{Decision trees}
+
+I will present and compare two different methods for building decision trees:
+\begin{itemize}
+\item CART~\autocite{Bre+84} provided by the rpart package.  This
+  algorithm uses the Gini index when deciding which attribute to split by.
+\item J48 (C4.5)~\autocite{Qui93} provided by the RWeka package.  This
+  algorithm uses information gain when deciding which attribute to split by.
+\end{itemize}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Create the CART learner.}
+\hlstd{rpart.lrn} \hlkwb{<-} \hlkwd{makeLearner}\hlstd{(}\hlstr{"classif.rpart"}\hlstd{,} \hlkwc{predict.type}\hlstd{=}\hlstr{"prob"}\hlstd{)}
+\hlstd{rpart.lrn} \hlkwb{<-} \hlkwd{setHyperPars}\hlstd{(rpart.lrn,} \hlkwc{par.vals}\hlstd{=}\hlkwd{list}\hlstd{(}\hlkwc{xval}\hlstd{=}\hlnum{10}\hlstd{))}  \hlcom{# 10-fold x-val.}
+\hlstd{rpart.lrn} \hlkwb{<-} \hlkwd{wrap.learner}\hlstd{(rpart.lrn)}
+
+\hlcom{# Create the J48 learner.}
+\hlstd{j48.lrn} \hlkwb{<-} \hlkwd{makeLearner}\hlstd{(}\hlstr{"classif.J48"}\hlstd{,} \hlkwc{predict.type}\hlstd{=}\hlstr{"prob"}\hlstd{)}    \hlcom{# 3-fold x-val.}
+\hlstd{j48.lrn} \hlkwb{<-} \hlkwd{wrap.learner}\hlstd{(j48.lrn)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+These decision trees can now be trained and have their performance assessed.
+The internal cross-validation is used for \emph{pruning} and \emph{parameter
+  tuning}.  Let's see what CART can do:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Run cross-validation using a default threshold of 50%.}
+\hlstd{rpart.res} \hlkwb{<-} \hlkwd{resample}\hlstd{(rpart.lrn, classif.task, classif.rdesc,}
+                      \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(f1, auc, acc))}
+\hlstd{rpart.res}\hlopt{$}\hlstd{aggr}
+\end{alltt}
+\begin{verbatim}
+##  f1.test.mean auc.test.mean acc.test.mean 
+##     0.0000000     0.5894739     0.9041845
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Unfortunately, due to the class imbalance, using a default threshold of
+\num{0.5} leads to an $F_1$ score of almost 0, despite the accuracy being as
+high as \SI{90}{\percent}.  In order to remedy that, I will tune the threshold:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Fit the model on the training and testing sets.}
+\hlstd{rpart.mod} \hlkwb{<-} \hlkwd{train}\hlstd{(rpart.lrn,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.train)}
+\hlstd{rpart.pred} \hlkwb{<-} \hlkwd{predict}\hlstd{(rpart.mod,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.test)}
+
+\hlcom{# Tune the threshold using the previously-defined balanced measure.}
+\hlstd{rpart.thresh} \hlkwb{<-} \hlkwd{tuneThreshold}\hlstd{(rpart.pred,} \hlkwc{measure}\hlstd{=bm)}
+\hlstd{rpart.pred} \hlkwb{<-} \hlkwd{setThreshold}\hlstd{(rpart.pred, rpart.thresh}\hlopt{$}\hlstd{th)}
+
+\hlcom{# Check the results.}
+\hlkwd{performance}\hlstd{(rpart.pred,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(tpr, fpr, acc, f1, auc, bm))}
+\end{alltt}
+\begin{verbatim}
+##        tpr        fpr        acc         f1        auc         bm 
+## 0.10961969 0.06169645 0.85723665 0.13060862 0.60261508 0.37281796
+\end{verbatim}
+\begin{alltt}
+\hlstd{rpart.pred}\hlopt{$}\hlstd{time}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.142
+\end{verbatim}
+\begin{alltt}
+\hlkwd{getConfMatrix}\hlstd{(rpart.pred)}
+\end{alltt}
+\begin{verbatim}
+##             predicted
+## true         Other Readmitted -SUM-
+##   Other      11604        763   763
+##   Readmitted  1194        147  1194
+##   -SUM-       1194        763  1957
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Given the imbalance of the dataset, CART does quite well.  It is, however, quite
+``aggressive.''  Analyzing its ROC and threshold curves let us observe some more
+general results and patterns:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{rpart.tvp} \hlkwb{<-} \hlkwd{generateThreshVsPerfData}\hlstd{(rpart.res,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(fpr, tpr))}
+\hlkwd{plotROCCurves}\hlstd{(rpart.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/rpart_curves-1} 
+
+}
+
+
+\begin{kframe}\begin{alltt}
+\hlkwd{plotThreshVsPerf}\hlstd{(rpart.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/rpart_curves-2} 
+
+}
+
+
+
+\end{knitrout}
+
+We now repeat these steps using the J48 algorithm.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Run cross-validation using a default threshold of 50%.}
+\hlstd{j48.res} \hlkwb{<-} \hlkwd{resample}\hlstd{(j48.lrn, classif.task, classif.rdesc,}
+                    \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(f1, auc, acc))}
+\hlstd{j48.res}\hlopt{$}\hlstd{aggr}
+\end{alltt}
+\begin{verbatim}
+##  f1.test.mean auc.test.mean acc.test.mean 
+##    0.01251485    0.57766670    0.90012840
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+The J48 algorithm performs similarly to CART.  We can test their accuracies for
+statistical significance using a $t$-test for dependent data (as we are fitting
+our models on the exact same data).  The $t$ statistic is given by
+\begin{equation*}
+  t = \frac{\bar{X_D} - \mu_0}{\frac{s_D}{\sqrt{n}}}\text{,}
+\end{equation*}
+where $X_D$ is a random variable denoting the difference in errors.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{measure.err} \hlkwb{<-} \hlkwa{function} \hlstd{(}\hlkwc{lrn}\hlstd{,} \hlkwc{task}\hlstd{,} \hlkwc{rinst}\hlstd{)}
+    \hlkwa{function} \hlstd{(}\hlkwc{rind}\hlstd{) \{}
+        \hlstd{mod} \hlkwb{<-} \hlkwd{train}\hlstd{(lrn, task,} \hlkwc{subset}\hlstd{=rinst}\hlopt{$}\hlstd{train.inds[[rind]])}
+        \hlstd{pred} \hlkwb{<-} \hlkwd{predict}\hlstd{(mod, task,} \hlkwc{subset}\hlstd{=rinst}\hlopt{$}\hlstd{test.inds[[rind]])}
+        \hlstd{mmce}\hlopt{$}\hlkwd{fun}\hlstd{(}\hlkwc{pred}\hlstd{=pred)}
+    \hlstd{\}}
+
+\hlstd{iters} \hlkwb{<-} \hlnum{15}
+\hlstd{classif.rinst} \hlkwb{<-} \hlkwd{makeResampleInstance}\hlstd{(}
+    \hlkwd{makeResampleDesc}\hlstd{(}\hlstr{"CV"}\hlstd{,} \hlkwc{iters}\hlstd{=iters,} \hlkwc{stratify}\hlstd{=}\hlnum{TRUE}\hlstd{), classif.task)}
+\hlstd{rpart.errs} \hlkwb{<-} \hlkwd{sapply}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{iters,}
+                     \hlkwd{measure.err}\hlstd{(rpart.lrn, classif.task, classif.rinst))}
+\hlstd{j48.errs} \hlkwb{<-} \hlkwd{sapply}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{iters,}
+                   \hlkwd{measure.err}\hlstd{(j48.lrn, classif.task, classif.rinst))}
+
+\hlkwd{t.test}\hlstd{(rpart.errs, j48.errs,} \hlkwc{paired}\hlstd{=}\hlnum{TRUE}\hlstd{)}
+\end{alltt}
+\begin{verbatim}
+## 
+## 	Paired t-test
+## 
+## data:  rpart.errs and j48.errs
+## t = -10.007, df = 14, p-value = 9.256e-08
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -0.005474769 -0.003542247
+## sample estimates:
+## mean of the differences 
+##            -0.004508508
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Despite the small $p$-value causing us to reject the null hypothesis, we see
+that the confidence interval is very close to $0$.  Thus, we can consider CART
+and J48 to be more or less equivalent in terms of accuracy.
+
+Next, we attempt to tune J48's threshold.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Fit the model on the training and testing sets.}
+\hlstd{j48.mod} \hlkwb{<-} \hlkwd{train}\hlstd{(j48.lrn,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.train)}
+\hlstd{j48.pred} \hlkwb{<-} \hlkwd{predict}\hlstd{(j48.mod,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.test)}
+
+\hlcom{# Tune the threshold using the previously-defined balanced measure.}
+\hlstd{j48.thresh} \hlkwb{<-} \hlkwd{tuneThreshold}\hlstd{(j48.pred,} \hlkwc{measure}\hlstd{=bm)}
+\hlstd{j48.pred} \hlkwb{<-} \hlkwd{setThreshold}\hlstd{(j48.pred, j48.thresh}\hlopt{$}\hlstd{th)}
+
+\hlcom{# Check the results.}
+\hlkwd{performance}\hlstd{(j48.pred,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(tpr, fpr, acc, f1, auc, bm))}
+\end{alltt}
+\begin{verbatim}
+##        tpr        fpr        acc         f1        auc         bm 
+## 0.15585384 0.09315113 0.83338197 0.15470022 0.59225217 0.38092747
+\end{verbatim}
+\begin{alltt}
+\hlstd{j48.pred}\hlopt{$}\hlstd{time}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.377
+\end{verbatim}
+\begin{alltt}
+\hlkwd{getConfMatrix}\hlstd{(j48.pred)}
+\end{alltt}
+\begin{verbatim}
+##             predicted
+## true         Other Readmitted -SUM-
+##   Other      11215       1152  1152
+##   Readmitted  1132        209  1132
+##   -SUM-       1132       1152  2284
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+J48 appears to be more ``conservative'' when classifying positive samples,
+whereas CART more ``aggressive.''  This results in J48 having greater overall
+accuracy, but smaller true positive rate.  The true- and false-positive rates
+can be analyzed by looking at the ROC curves.
+
+As the figures below show, the threshold curves of J48 are much smoother
+compared to those of CART, i.e., there are no flat regions and the spikes are
+not as prominent.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{j48.tvp} \hlkwb{<-} \hlkwd{generateThreshVsPerfData}\hlstd{(j48.res,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(fpr, tpr))}
+\hlkwd{plotROCCurves}\hlstd{(j48.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/j48_curves-1} 
+
+}
+
+
+\begin{kframe}\begin{alltt}
+\hlkwd{plotThreshVsPerf}\hlstd{(j48.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/j48_curves-2} 
+
+}
+
+
+
+\end{knitrout}
+
+At the end, I will perform calibration plots of both CART and J48.  These plots
+visualize estimated class probabilities against the observed frequencies.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{plotCalibration}\hlstd{(}\hlkwd{generateCalibrationData}\hlstd{(}\hlkwd{list}\hlstd{(}\hlkwc{CART}\hlstd{=rpart.pred,} \hlkwc{J48}\hlstd{=j48.pred)))}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/decision_trees_calibration-1} 
+
+}
+
+
+
+\end{knitrout}
+
+Again we see that the probabilities in J48 are much more uniformly distributed,
+explaining the smoother threshold curves.
+
+\subsection{Naïve Bayes}
+
+I will create and evaluate the naïve Bayes classifier by repeating the procedure
+with the decision trees.  Naïve Bayes assumes conditional independence between
+the attributes given the class, and makes a prediction
+\begin{equation*}
+  \hat{y} = \argmax_{k \in \{1, \ldots, K\}} \Pr(C_k) \prod\limits_{i = 1}^{K}
+  \Pr(x_i \mid C_i)\text{.}
+\end{equation*}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Create the naïve Bayes learner.}
+\hlstd{nb.lrn} \hlkwb{<-} \hlkwd{makeLearner}\hlstd{(}\hlstr{"classif.naiveBayes"}\hlstd{,} \hlkwc{predict.type}\hlstd{=}\hlstr{"prob"}\hlstd{)}
+\hlstd{nb.lrn} \hlkwb{<-} \hlkwd{wrap.learner}\hlstd{(nb.lrn)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Cross-validation is used to assess preliminary performance:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Run cross-validation using a default threshold of 50%.}
+\hlstd{nb.res} \hlkwb{<-} \hlkwd{resample}\hlstd{(nb.lrn, classif.task, classif.rdesc,}
+                   \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(f1, auc, acc))}
+\hlstd{nb.res}\hlopt{$}\hlstd{aggr}
+\end{alltt}
+\begin{verbatim}
+##  f1.test.mean auc.test.mean acc.test.mean 
+##     0.1991073     0.6064824     0.7452507
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Interestingly, naïve Bayes has a higher $F_1$ score ``out of the box,'' but a
+lower accuracy.  Perhaps it can be made even better with threshold tuning.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Fit the model on the training and testing sets.}
+\hlstd{nb.mod} \hlkwb{<-} \hlkwd{train}\hlstd{(nb.lrn,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.train)}
+\hlstd{nb.pred} \hlkwb{<-} \hlkwd{predict}\hlstd{(nb.mod,} \hlkwc{task}\hlstd{=classif.task,} \hlkwc{subset}\hlstd{=classif.test)}
+
+\hlcom{# Tune the threshold using the previously-defined balanced measure.}
+\hlstd{nb.thresh} \hlkwb{<-} \hlkwd{tuneThreshold}\hlstd{(nb.pred,} \hlkwc{measure}\hlstd{=bm)}
+\hlstd{nb.pred} \hlkwb{<-} \hlkwd{setThreshold}\hlstd{(nb.pred, nb.thresh}\hlopt{$}\hlstd{th)}
+
+\hlcom{# Check the results.}
+\hlkwd{performance}\hlstd{(nb.pred,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(tpr, fpr, acc, f1, auc, bm))}
+\end{alltt}
+\begin{verbatim}
+##       tpr       fpr       acc        f1       auc        bm 
+## 0.2311708 0.1283254 0.8090166 0.1914762 0.5990474 0.3973230
+\end{verbatim}
+\begin{alltt}
+\hlstd{nb.pred}\hlopt{$}\hlstd{time}
+\end{alltt}
+\begin{verbatim}
+## [1] 30.703
+\end{verbatim}
+\begin{alltt}
+\hlkwd{getConfMatrix}\hlstd{(nb.pred)}
+\end{alltt}
+\begin{verbatim}
+##             predicted
+## true         Other Readmitted -SUM-
+##   Other      10780       1587  1587
+##   Readmitted  1031        310  1031
+##   -SUM-       1031       1587  2618
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Unfortunately, we see that optimizing the balanced measure as defined
+in~\cref{eq:bm} lowers the $F_1$ score in order to compensate for accuracy.  Of
+course, we manage to achieve a decent accuracy of \SI{80}{\percent} (compared to
+the previous \SI{75}{\percent}) while maintaining the $F_1$ score at around
+\num{0.2}.
+
+Another point is that naïve Bayes takes a much longer time to classify than the
+tree-based algorithms.  However, this is expected.
+
+The ROC curve and calibration plots wrap up our discussion on naïve Bayes.  We
+observe some interesting patterns that are summarized below.
+
+\pagebreak
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{nb.tvp} \hlkwb{<-} \hlkwd{generateThreshVsPerfData}\hlstd{(nb.res,} \hlkwc{measures}\hlstd{=}\hlkwd{list}\hlstd{(fpr, tpr))}
+\hlkwd{plotROCCurves}\hlstd{(nb.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/nb_curves-1} 
+
+}
+
+
+\begin{kframe}\begin{alltt}
+\hlkwd{plotThreshVsPerf}\hlstd{(nb.tvp)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/nb_curves-2} 
+
+}
+
+
+\begin{kframe}\begin{alltt}
+\hlkwd{plotCalibration}\hlstd{(}\hlkwd{generateCalibrationData}\hlstd{(nb.pred))}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/nb_curves-3} 
+
+}
+
+
+
+\end{knitrout}
+
+Naïve Bayes appears to be a much stabler and a very ``smooth'' algorithm.  The
+curves have almost no spikes and the frequencies are distributed very uniformly.
+
+\subsection{$k$-nearest neighbors}
+
+I will be using Weka's implementation of $k$NN.  For this purpose, I will first
+write the preprocessed data in Weka's ARFF format.
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{library}\hlstd{(RWeka)}
+\hlkwd{write.arff}\hlstd{(}\hlkwd{getTaskData}\hlstd{(classif.task,} \hlkwc{subset}\hlstd{=classif.train),}
+           \hlstr{"diabetic_data-train.arff"}\hlstd{)}  \hlcom{# Training data.}
+\hlkwd{write.arff}\hlstd{(}\hlkwd{getTaskData}\hlstd{(classif.task,} \hlkwc{subset}\hlstd{=classif.test),}
+           \hlstr{"diabetic_data-test.arff"}\hlstd{)}   \hlcom{# Testing data.}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Next, I will load that data into Weka and use $k$NN coupled with SMOTE.  In
+particular, I will use the same SMOTE settings as previously (oversample by a
+factor of $5$, consider $10$ nearest-neighbors).
+
+The SMOTE command line is:
+\begin{verbatim}
+SMOTE -C 0 -K 10 -P 500.0 -S 13
+\end{verbatim}
+
+Weka implements the IB$k$~\autocite{AK91} algorithm.  I will use
+cross-validation to determine the value for $k$ ($k \in \{1, 2, \ldots, 13\}$)
+and inverse-distance weighting.  As we will see, taking $k = 4$ provides the
+greatest accuracy.
+
+In order to speed up the algorithm
+\href{https://en.wikipedia.org/wiki/K-d_tree}{$k$-d trees} will be used, as they
+allow for $\mathcal O(\log n)$ nearest-neighbor queries.  Distance will be
+measured by the common Euclidean norm.
+
+\begin{verbatim}
+=== Run information ===
+
+Scheme:       weka.classifiers.lazy.IBk -K 13 -W 0 -X -I
+              -A "weka.core.neighboursearch.KDTree
+              -A \"weka.core.EuclideanDistance
+              -R first-last\"
+              -S weka.core.neighboursearch.kdtrees.SlidingMidPointOfWidestSide
+              -W 0.01 -L 40 -N" -batch-size 500
+Relation:     diabetic_data-train-weka.filters.supervised.instance.SMOTE-C0-K10-P500.0-S13
+Instances:    80920
+Attributes:   25
+              race
+              gender
+              age
+              admission_type_id
+              discharge_disposition_id
+              admission_source_id
+              time_in_hospital
+              num_lab_procedures
+              num_procedures
+              num_medications
+              number_inpatient
+              diag_1
+              diag_2
+              diag_3
+              number_diagnoses
+              A1Cresult
+              metformin
+              glipizide
+              glyburide
+              pioglitazone
+              rosiglitazone
+              insulin
+              change
+              diabetesMed
+              readmitted
+Test mode:    user supplied test set:  size unknown (reading incrementally)
+
+=== Classifier model (full training set) ===
+
+IB1 instance-based classifier
+using 4 inverse-distance-weighted nearest neighbour(s) for classification
+
+
+Time taken to build model: 0.28 seconds
+
+=== Evaluation on test set ===
+
+Time taken to test model on supplied test set: 38.24 seconds
+
+=== Summary ===
+
+Correctly Classified Instances       11006               80.2889 %
+Incorrectly Classified Instances      2702               19.7111 %
+Kappa statistic                          0.0195
+Mean absolute error                      0.2462
+Root mean squared error                  0.4081
+Relative absolute error                 60.1874 %
+Root relative squared error             98.4431 %
+Total Number of Instances            13708
+
+=== Detailed Accuracy By Class ===
+
+                 TP Rate  FP Rate  Precision  Recall   F-Measure  Class
+                 0.874    0.852    0.904      0.874    0.889      Other
+                 0.148    0.126    0.113      0.148    0.128      Readmitted
+Weighted Avg.    0.803    0.781    0.827      0.803    0.814
+
+                 MCC      ROC Area  PRC Area  Class
+                 0.020    0.532     0.909     Other
+                 0.020    0.532     0.109     Readmitted
+Weighted Avg.    0.020    0.532     0.831
+
+=== Confusion Matrix ===
+
+     a     b   <-- classified as
+ 10807  1560 |     a = Other
+  1142   199 |     b = Readmitted
+\end{verbatim}
+
+Unfortunately, $k$NN performs quite poorly with an area under the ROC curve of
+only \num{0.532}.  The positive class $F_1$ score is poor, too; only
+\num{0.128}.
+
+\section{Clustering}\label{sec:cluster}
+
+Since some of the algorithms we'll be exploring from here on take time---or even
+worse, memory---on the order of $\mathcal O\left(n^2\right)$ or more, I will
+restrict myself to a smaller subset of the data.  For this I am going to use
+stratified sampling -- I believe that associations and clusters should remain
+intact even within such samples.
+
+The subset size will be around $\sfrac{1}{3}$ of the original data.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{st} \hlkwb{<-} \hlkwd{strata}\hlstd{(df,} \hlkwc{stratanames}\hlstd{=}\hlstr{"readmitted"}\hlstd{,}
+             \hlkwc{size}\hlstd{=}\hlkwd{c}\hlstd{(}\hlnum{17500}\hlstd{,} \hlnum{2500}\hlstd{),} \hlkwc{method}\hlstd{=}\hlstr{"srswor"}\hlstd{)}
+\hlstd{df.subset} \hlkwb{<-} \hlkwd{getdata}\hlstd{(df, st)}
+\hlcom{# Drop unnecessary attributes.}
+\hlstd{df.subset} \hlkwb{<-} \hlkwd{subset}\hlstd{(df.subset,} \hlkwc{select}\hlstd{=}\hlopt{-}\hlkwd{c}\hlstd{(ID_unit, Prob, Stratum))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+The data for clustering will be centered and scaled.  As we will be using dummy
+variables, a Box--Cox transformation would not be advisable.  We will also drop
+the \texttt{readmitted} attribute as clustering is inherently an
+\emph{unsupervised} task.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# We won't be needing the class attribute when clustering.}
+\hlstd{cluster.df} \hlkwb{<-} \hlkwd{data.frame}\hlstd{(}\hlkwd{model.matrix}\hlstd{(readmitted} \hlopt{~} \hlstd{.} \hlopt{-} \hlnum{1}\hlstd{, df.subset))}
+\hlstd{cluster.pp} \hlkwb{<-} \hlkwd{preProcess}\hlstd{(cluster.df,} \hlkwc{method}\hlstd{=}\hlkwd{c}\hlstd{(}\hlstr{"center"}\hlstd{,} \hlstr{"scale"}\hlstd{))}
+\end{alltt}
+
+
+{\ttfamily\noindent\color{warningcolor}{\#\# Warning in preProcess.default(cluster.df, method = c("{}center"{}, "{}scale"{})): These variables have zero variances: genderUnknown.Invalid}}\begin{alltt}
+\hlstd{cluster.df} \hlkwb{<-} \hlkwd{predict}\hlstd{(cluster.pp, cluster.df)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+The first algorithm I will try is DBSCAN.  In determining its \textsc{Eps} and
+\textsc{MinPts} parameters, I will use the following widely accepted method:
+\begin{enumerate}
+\item \textsc{Eps} is determined by looking at a knee of a $k$NN distance plot
+  (I will take $k = 4$);
+\item \textsc{MinPts} is set to $\#\{\text{dimensions}\} + 1$.
+\end{enumerate}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{dim}\hlstd{(cluster.df)}
+\end{alltt}
+\begin{verbatim}
+## [1] 20000    72
+\end{verbatim}
+\begin{alltt}
+\hlkwd{kNNdistplot}\hlstd{(cluster.df,} \hlkwc{k}\hlstd{=}\hlnum{4}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/dbscan_pars-1} 
+
+}
+
+
+
+\end{knitrout}
+
+Looking at the plot, one can identify a knee at around \num{11}, so we should
+have $\textsc{Eps} \approx 11$ (I will take it to be exactly \num{11}).  Since
+there are \num{72} dimensions, I will take $\textsc{MinPts} = 73$.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{dbs} \hlkwb{<-} \hlkwd{dbscan}\hlstd{(cluster.df,} \hlkwc{eps}\hlstd{=}\hlnum{11}\hlstd{,} \hlkwc{minPts}\hlstd{=}\hlnum{73}\hlstd{); dbs}
+\end{alltt}
+\begin{verbatim}
+## DBSCAN clustering for 20000 objects.
+## Parameters: eps = 11, minPts = 73
+## The clustering contains 4 cluster(s) and 193 noise points.
+## 
+##     0     1     2     3     4 
+##   193 19359   141   157   150 
+## 
+## Available fields: cluster, eps, minPts
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Unfortunately, it can be seen that the clusters found by DBSCAN do not
+correspond to our \texttt{readmitted} class.
+
+The next algorithm I will try is $k$-means with $k \in \{2, \ldots, 50\}$.  What
+I will measure is the
+\begin{equation}
+  \frac{\mathrm{BetweenSS}}{\mathrm{TotalSS}}
+\end{equation}
+ratio, which should be close to \num{1} if the data exhibits well-separated
+clusters.  The rationale is that $\mathrm{BetweenSS}$ should be more or less
+equal to $\mathrm{TotalSS} = \mathrm{WithinSS} + \mathrm{BetweenSS}$, as
+well-separated clusters minimize $\mathrm{WithinSS}$.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{ks} \hlkwb{<-} \hlnum{2}\hlopt{:}\hlnum{50}
+\hlstd{kmeans.errs} \hlkwb{<-} \hlkwd{sapply}\hlstd{(ks,} \hlkwa{function} \hlstd{(}\hlkwc{k}\hlstd{) \{}
+    \hlstd{km} \hlkwb{<-} \hlkwd{kmeans}\hlstd{(cluster.df, k,} \hlkwc{iter.max}\hlstd{=}\hlnum{20}\hlstd{)}
+    \hlstd{km}\hlopt{$}\hlstd{betweenss} \hlopt{/} \hlstd{km}\hlopt{$}\hlstd{totss}  \hlcom{# Should be high (close to 1).}
+\hlstd{\})}
+\hlkwd{plot}\hlstd{(ks, kmeans.errs,} \hlkwc{xlab}\hlstd{=}\hlstr{"k"}\hlstd{,} \hlkwc{ylab}\hlstd{=}\hlstr{"BetweenSS / TotalSS ratio"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/kmeans_err-1} 
+
+}
+
+
+
+\end{knitrout}
+
+Even with $k = 50$, the $\mathrm{BetweenSS} / {\mathrm{TotalSS}}$ is very poor
+(around \num{0.4}), leading me to believe that there are no well-separated
+clusters in terms of $k$-means within the data.
+
+\section{Association rule mining}\label{sec:associate}
+
+I will use the apriori algorithm~\autocite{AS94} for association rule mining.
+First, we need to discretize our numeric attributes.  I will use clustering to
+perform the discretization.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{assoc.df} \hlkwb{<-} \hlkwd{data.frame}\hlstd{(}\hlkwd{lapply}\hlstd{(df.subset,} \hlkwa{function} \hlstd{(}\hlkwc{attr}\hlstd{)}
+    \hlkwa{if} \hlstd{(}\hlkwd{is.numeric}\hlstd{(attr))} \hlkwd{discretize}\hlstd{(attr,} \hlkwc{method}\hlstd{=}\hlstr{"cluster"}\hlstd{)} \hlkwa{else} \hlstd{attr))}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+Next, I will convert the data to a suitable format (sparse representation).
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlstd{assoc.trans} \hlkwb{<-} \hlkwd{as}\hlstd{(assoc.df,} \hlstr{"transactions"}\hlstd{)}
+\hlkwd{summary}\hlstd{(assoc.trans)}
+\end{alltt}
+\begin{verbatim}
+## transactions as itemMatrix in sparse format with
+##  20000 rows (elements/itemsets/transactions) and
+##  103 columns (items) and a density of 0.2427184 
+## 
+## most frequent items:
+## rosiglitazone=No  pioglitazone=No     glyburide=No     glipizide=No 
+##            18766            18585            17811            17512 
+## readmitted=Other          (Other) 
+##            17500           409826 
+## 
+## element (itemset/transaction) length distribution:
+## sizes
+##    25 
+## 20000 
+## 
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##      25      25      25      25      25      25 
+## 
+## includes extended item information - examples:
+##                 labels variables          levels
+## 1 race=AfricanAmerican      race AfricanAmerican
+## 2           race=Asian      race           Asian
+## 3       race=Caucasian      race       Caucasian
+## 
+## includes extended transaction information - examples:
+##   transactionID
+## 1             1
+## 2             2
+## 3             3
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+The apriori algorithm is based on two crucial measures, \emph{support} and
+\emph{confidence}, defined as
+\begin{align*}
+  \operatorname{Support}(X \rightarrow Y) = \frac{\sigma(X \cup Y)}{N} = \Pr(X
+  \cup Y)\text{,} &&
+                     \operatorname{Confidence}(X \rightarrow Y) = \frac{\sigma(X \cup Y)}{\sigma(X)}
+                     =
+                     \Pr(Y
+                     \mid X)\text{.}
+\end{align*}
+
+Given this, the first step is to generate \emph{frequent itemsets} -- itemsets
+with support greater than some minimum threshold.  In order to get a feel of the
+data, I will plot the frequent items.  These items make for good left-hand side
+candidates, as long as they do not lead to trivial rules.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{itemFrequencyPlot}\hlstd{(assoc.trans,} \hlkwc{topN}\hlstd{=}\hlnum{40}\hlstd{,}
+                  \hlkwc{cex.names}\hlstd{=}\hlnum{0.5}\hlstd{,} \hlkwc{main}\hlstd{=}\hlstr{"Item frequency plot"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/frequency_plot-1} 
+
+}
+
+
+
+\end{knitrout}
+
+Several ``items'' appear to be present in relatively high frequency, which is
+hopefully a good sign -- again, as long as they do not lead to trivial rules.
+Now we can check for similarities between items: whether there is any redundancy
+in the transactions.  This will be done with hierarchical clustering.
+
+Observing the dendrogram lets us look at how up in the tree items are merged
+(using complete linkage).  The higher up they are the more dissimilar they are.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Generate the dissimilarity matrix.}
+\hlstd{dissim.mat} \hlkwb{<-} \hlkwd{dissimilarity}\hlstd{(assoc.trans,} \hlkwc{method}\hlstd{=}\hlstr{"phi"}\hlstd{,} \hlkwc{which}\hlstd{=}\hlstr{"items"}\hlstd{)}
+
+\hlcom{# Plot the results of the hierarchical clustering.}
+\hlcom{# (Uses complete linkage by default)}
+\hlkwd{plot}\hlstd{(}\hlkwd{hclust}\hlstd{(dissim.mat),} \hlkwc{cex}\hlstd{=}\hlnum{0.5}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/dissimilarities-1} 
+
+}
+
+
+
+\end{knitrout}
+
+As it can be seen, the vast majority of the items are dissimilar from one
+another and there is no need to further preprocess the data.  When generating
+the rules using the priory algorithm, I will take an interesting support to mean
+having at least \num{5000} observations:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlnum{5000} \hlopt{/} \hlkwd{nrow}\hlstd{(assoc.trans)}  \hlcom{# Find a minimum support size.}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.25
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+In other words, the minimum support will be set to \num{0.25}.  The minimum
+confidence will be set to \num{0.75}, and rules will be restricted to include at
+most \num{15} items.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Generate the rules.}
+\hlstd{assoc.rules} \hlkwb{<-} \hlkwd{apriori}\hlstd{(assoc.trans,}
+                       \hlkwc{parameter}\hlstd{=}\hlkwd{list}\hlstd{(}\hlkwc{target}\hlstd{=}\hlstr{"rules"}\hlstd{,}
+                                      \hlkwc{supp}\hlstd{=}\hlnum{0.25}\hlstd{,} \hlkwc{conf}\hlstd{=}\hlnum{0.75}\hlstd{,}
+                                      \hlkwc{minlen}\hlstd{=}\hlnum{2}\hlstd{,} \hlkwc{maxlen}\hlstd{=}\hlnum{15}\hlstd{))}
+\end{alltt}
+\begin{verbatim}
+## Apriori
+## 
+## Parameter specification:
+##  confidence minval smax arem  aval originalSupport support minlen maxlen
+##        0.75    0.1    1 none FALSE            TRUE    0.25      2     15
+##  target   ext
+##   rules FALSE
+## 
+## Algorithmic control:
+##  filter tree heap memopt load sort verbose
+##     0.1 TRUE TRUE  FALSE TRUE    2    TRUE
+## 
+## Absolute minimum support count: 5000 
+## 
+## set item appearances ...[0 item(s)] done [0.00s].
+## set transactions ...[102 item(s), 20000 transaction(s)] done [0.06s].
+## sorting and recoding items ... [37 item(s)] done [0.01s].
+## creating transaction tree ... done [0.04s].
+## checking subsets of size 1 2 3 4 5 6 7 8 9 done [1.59s].
+## writing ... [25170 rule(s)] done [0.01s].
+## creating S4 object  ... done [0.03s].
+\end{verbatim}
+\begin{alltt}
+\hlcom{# Sort by lift.}
+\hlstd{rules.by.lift} \hlkwb{<-} \hlkwd{head}\hlstd{(}\hlkwd{sort}\hlstd{(assoc.rules,} \hlkwc{by}\hlstd{=}\hlstr{"lift"}\hlstd{),} \hlnum{10}\hlstd{)}
+\hlkwd{inspect}\hlstd{(rules.by.lift)}
+\end{alltt}
+\begin{verbatim}
+##    lhs                   rhs         support confidence     lift
+## 1  {metformin=No,                                               
+##     glipizide=No,                                               
+##     glyburide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.26130  0.9927812 1.771716
+## 2  {A1Cresult=None,                                             
+##     metformin=No,                                               
+##     glyburide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.26090  0.9845283 1.756988
+## 3  {metformin=No,                                               
+##     glipizide=No,                                               
+##     glyburide=No,                                               
+##     pioglitazone=No,                                            
+##     insulin=No}       => {change=No} 0.27165  0.9838827 1.755836
+## 4  {A1Cresult=None,                                             
+##     metformin=No,                                               
+##     glipizide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.25560  0.9815668 1.751703
+## 5  {metformin=No,                                               
+##     glyburide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.29725  0.9813470 1.751311
+## 6  {metformin=No,                                               
+##     glipizide=No,                                               
+##     glyburide=No,                                               
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.27355  0.9811693 1.750994
+## 7  {metformin=No,                                               
+##     glyburide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No,                                                 
+##     readmitted=Other} => {change=No} 0.26245  0.9811215 1.750908
+## 8  {metformin=No,                                               
+##     glipizide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No,                                                 
+##     readmitted=Other} => {change=No} 0.25870  0.9799242 1.748772
+## 9  {metformin=No,                                               
+##     glipizide=No,                                               
+##     pioglitazone=No,                                            
+##     rosiglitazone=No,                                           
+##     insulin=No}       => {change=No} 0.29135  0.9793277 1.747707
+## 10 {metformin=No,                                               
+##     glipizide=No,                                               
+##     glyburide=No,                                               
+##     insulin=No,                                                 
+##     readmitted=Other} => {change=No} 0.25170  0.9740712 1.738326
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+We see that our \num{10} best rules (in terms of lift) can be used to help us
+predict whether change in diabetes medication should be administered to the
+patient.  We can visualize these rules:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{plot}\hlstd{(rules.by.lift,} \hlkwc{method}\hlstd{=}\hlstr{"grouped"}\hlstd{,} \hlkwc{measure}\hlstd{=}\hlstr{"support"}\hlstd{,} \hlkwc{shading}\hlstd{=}\hlstr{"lift"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/plot_by_lift-1} 
+
+}
+
+
+
+\end{knitrout}
+
+On the other hand, ranking the rules by confidence gives rules which
+tell whether medication is to be administered:
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlcom{# Sort by confidence.}
+\hlstd{rules.by.conf} \hlkwb{<-} \hlkwd{head}\hlstd{(}\hlkwd{sort}\hlstd{(assoc.rules,} \hlkwc{by}\hlstd{=}\hlstr{"confidence"}\hlstd{),} \hlnum{10}\hlstd{)}
+\hlkwd{inspect}\hlstd{(rules.by.conf)}
+\end{alltt}
+\begin{verbatim}
+##    lhs                                   rhs               support confidence     lift
+## 1  {insulin=Steady}                   => {diabetesMed=Yes} 0.31530          1 1.320393
+## 2  {change=Ch}                        => {diabetesMed=Yes} 0.43965          1 1.320393
+## 3  {metformin=No,                                                                     
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.25100          1 1.320393
+## 4  {A1Cresult=None,                                                                   
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.25455          1 1.320393
+## 5  {insulin=Steady,                                                                   
+##     readmitted=Other}                 => {diabetesMed=Yes} 0.27485          1 1.320393
+## 6  {glipizide=No,                                                                     
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.27545          1 1.320393
+## 7  {glyburide=No,                                                                     
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.28320          1 1.320393
+## 8  {pioglitazone=No,                                                                  
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.29255          1 1.320393
+## 9  {rosiglitazone=No,                                                                 
+##     insulin=Steady}                   => {diabetesMed=Yes} 0.29440          1 1.320393
+## 10 {discharge_disposition_id=To home,                                                 
+##     change=Ch}                        => {diabetesMed=Yes} 0.26365          1 1.320393
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+Note that the lift of these rules is comparably smaller because the event of
+medication being administered appears often in our dataset.  These rules also
+look similar to the ones ranked by lift, as they also pertain to a single
+right-hand size.
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{plot}\hlstd{(rules.by.conf,} \hlkwc{method}\hlstd{=}\hlstr{"grouped"}\hlstd{,} \hlkwc{measure}\hlstd{=}\hlstr{"lift"}\hlstd{,} \hlkwc{shading}\hlstd{=}\hlstr{"support"}\hlstd{)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/plot_by_conf-1} 
+
+}
+
+
+
+\end{knitrout}
+
+We finish off with a visualization of all rules, which shows that there are
+rules which have both high confidence and lift (meaning they are accurate while
+also not being ``common knowledge'').
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{plot}\hlstd{(assoc.rules)}
+\end{alltt}
+\end{kframe}
+
+{\centering \includegraphics[width=\maxwidth]{figure/plot_all_rules-1} 
+
+}
+
+
+
+\end{knitrout}
+
+\section{Conclusion}
+
+The dataset that I have mined shows heavy imbalance in class distribution.  This
+leads to problems in classification.  We observe that despite having solid
+accuracy, the classification algorithms struggle with classifying positive
+observations even if sophisticated upsampling techniques such as SMOTE are
+used.  However, after tuning the algorithms' classification threshold,
+satisfying results are obtained.
+
+Further directions in classification worth exploring include:
+\begin{itemize}
+\item SMOTE likely leads to overfitting.  Thus, it might be worthwhile to look
+  at ensemble-based methods such as random forests and AdaBoost, as they are
+  known to be less susceptible to overfitting.  Additionally one might combine
+  several completely different learners, i.e., naïve Bayes and $k$NN.
+\item Aggressive cross-validation for parameter tuning, e.g., tune even SMOTE's
+  parameters using separate data.
+\item Look at pairwise interactions for adding nonlinearities.
+\end{itemize}
+
+The data does not exhibit well-separated clusters in terms of density (DBSCAN)
+or centroids ($k$-means).  It is unlikely that any clustering technique will
+yield meaningful results, partly due to the nature of the data, partly due to
+the underlying imbalance in class distributions.
+
+Nevertheless, there are meaningful association rules that can be extracted from
+the data.  These rules allow us to draw conclusion regarding medication changes
+or administrations.
+
+Last, but not least, it is safe to say that the data is quite ungainly.  In
+order to tackle the issue, perhaps additional attributes should be measured
+regarding patients.  Unfortunately, there is also the possibility of diabetes
+being too unpredictable to lack any meaningful causal structure.
+
+\printbibliography[heading=bibintoc]
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

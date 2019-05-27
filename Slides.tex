@@ -1,0 +1,426 @@
+\documentclass[serif, hyperref={unicode}, xcolor={x11names, psnames, dvipsnames,
+  table}, usepdftitle=false]{beamer}
+
+\usetheme{Warsaw}
+\usefonttheme{professionalfonts}
+\setbeamercovered{dynamic}
+\setbeamertemplate{caption}[numbered]
+
+\beamertemplatenavigationsymbolsempty
+
+\usepackage[T1]{fontenc}
+\usepackage{concrete}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[babel]{microtype}
+\usepackage{mathtools, amssymb}
+\usepackage{booktabs, array, multicol}
+\usepackage[binary-units, detect-all]{siunitx}
+\usepackage[newfloat]{minted}
+\usepackage[style=alphabetic, backend=biber]{biblatex}
+
+\addbibresource{Bibliography.bib}
+
+\graphicspath{{figure/}}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\hypersetup{
+  pdfinfo={
+    Title={Mining the "Diabetes in 130 US Hospitals for Years 1999--2008" Dataset},
+    Subject={Data Mining},
+    Author={Dario Gjorgjevski},
+    Keywords={Data Mining, Visualization, Preprocessing, Classification,
+      Clustering, Decision Trees, Naïve Bayes, k-Nearest Neighbors,
+      DBSCAN, Association Rules}
+  }
+}
+
+\begin{document}
+\title[Mining for Diabetes Readmission]{Mining the ``Diabetes in 130 US
+  Hospitals for Years 1999--2008'' Dataset}
+\subtitle{Final Project in Data Mining}
+\author[D.~Gjorgjevski]{Dario Gjorgjevski\inst{1}\\
+  \texttt{\href{mailto:gjorgjevski.dario@students.finki.ukim.mk}
+    {gjorgjevski.dario@students.finki.ukim.mk}}}
+\institute[FCSE]{\inst{1}Faculty of Computer Science and Engineering\\
+  Ss.\ Cyril and Methodius University in Skopje} \date{\today}
+\logo{\includegraphics[height=0.66cm]{Logo.png}}
+
+\AtBeginSection[]{%
+  \begin{frame}{Outline}
+    \begin{scriptsize}
+      \tableofcontents[currentsection, hideothersubsections]
+    \end{scriptsize}
+  \end{frame}
+}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\section{Introduction}
+
+\subsection{Dataset information}
+\begin{frame}{An overview of the data}
+  \begin{itemize}
+  \item The dataset is called ``Diabetes in \num{130} US Hospitals for Years
+    1999--2008''
+  \item It is available in the UCI repository
+  \item Over \num{10} years (1999--2008) of clinical care at \num{130} hospitals
+  \item  \num{50} attributes representing patient and hospital outcomes
+  \item Included are attributes indicating numbers and types of procedures,
+    diagnoses, medications, etc.
+  \end{itemize}
+\end{frame}
+
+\subsection{Task information}
+\begin{frame}{What tasks have been performed}
+  The tasks that I have performed include:
+  \begin{enumerate}
+  \item Preprocessing and visualization
+  \item Classification using decision trees, na\"i{}ve Bayes, and $k$-nearest
+    neighbors
+  \item Clustering using DBSCAN and $k$-means
+  \item Association rule mining using the apriori algorithm
+  \end{enumerate}
+
+  The goal is to predict whether a patient will be readmitted within \num{30}
+  days or not.
+\end{frame}
+
+\begin{frame}{Potential pitfalls}
+  The class distribution is very imbalanced:
+  \begin{table}[!h]
+    \begin{tabular}{S S}
+      \toprule
+      {Other} & {Readmitted} \\
+      \midrule
+      61979 & 6559 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  Additionally, the dimensionality of the data is very high, exceeding \num{50}.
+\end{frame}
+
+\section{Preprocessing and visualization}
+
+\subsection{Preprocessing}
+\begin{frame}[fragile]{Reading the data}
+  \begin{itemize}
+  \item We read the data from the provided CSV file and remove any unique ID's
+\begin{minted}{r}
+df <- read.csv("diabetic_data.csv", na.strings="?")
+df <- subset(df,
+             select=-c(encounter_id, patient_nbr))
+\end{minted}
+  \item Afterwards, the data is sanitized so that nominal attributes are
+    represented correctly within R
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Imputation of missing values}
+  \begin{itemize}
+  \item The dataset contains attributes with missing values that need to be
+    imputed
+  \item Some attributes (weight, medical specialty, and payer code) are missing
+    in many observations (over \SI{40}{\percent}), so we drop them entirely
+  \item Other attributes are imputed according to the following strategy:
+    \begin{itemize}
+    \item Numeric attributes are imputed by their means
+    \item Nominal attributes are imputed by sampling with replacement from the
+      available data
+    \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Grouping of nominal attributes}
+  In order to reduce complexity, nominal attributes with many distinct values
+  are grouped together while preserving the distribution of the
+  \texttt{readmitted} attribute.  The following attributes are grouped:
+  \begin{itemize}
+  \item Similar diagnoses
+  \item Similar reasons for admission and discharge
+  \item Age groups showing similar characteristics
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Outlier removal}
+  Boxplots of numeric attributes reveal the presence of outliers.
+  \begin{figure}[!h]
+    \includegraphics[clip, trim=0 2.2cm 0 0.6cm, width=\linewidth]{boxplots-1.pdf}
+    \caption{Boxplots showing outliers}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Outlier removal}
+  I will consider an outlier everything outside of the
+  \begin{equation}
+    [\mathrm{Q1} - 1.75 \cdot \mathrm{IQR}, \mathrm{Q3} + 1.75 \cdot
+    \mathrm{IQR}]
+  \end{equation}
+  range, where Q1 is the first, Q3 the third quartile, and IQR and
+  inter-quartile range.  Often authors use \num{1.5} instead of \num{1.75}, but
+  I have decided that \num{1.5} is too strict.
+\end{frame}
+
+\begin{frame}{Attribute cleaning and transformation}
+  \begin{itemize}
+  \item Attributes with near-zero variance are dropped from the data, as they
+    provide no meaningful information
+  \item There are not any highly correlated attributes
+  \item Numeric attributes are centered, scaled, and have a Box--Cox
+    transformation applied to them in order to correct for skewed distributions
+  \item PCA analysis shows that all components need to be retained in order to
+    capture a significant portion of the variance
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Correlation analysis}
+  \begin{figure}[!h]
+    \includegraphics[clip, trim=0 1.1cm 0 0.6cm,
+    height=0.75\textheight]{analyze_cor-1.pdf}
+    \caption{Correlation matrix with $p$-values}
+  \end{figure}
+\end{frame}
+
+\subsection{Visualization}
+\begin{frame}{Visualizing medical care by race}
+  Interestingly, patients receive the same amount of care regardless of race
+  (the densities shown below are uniform).
+
+  \begin{figure}[!h]
+    \includegraphics[width=\linewidth,
+    height=0.55\textheight]{race_equality-2.pdf}
+    \caption{Number of lab procedures by race}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Number of diagnoses for Caucasian patients}
+  ... however, Caucasian patients receive at the median more diagnoses.
+
+  \begin{figure}[!h]
+    \includegraphics[width=\linewidth,
+    height=0.55\textheight]{caucasian_number_diagnoses-1.pdf}
+    \caption{Number of diagnoses by race}
+  \end{figure}
+\end{frame}
+
+\section{Classification}
+
+\subsection{Preliminaries}
+\begin{frame}{How classification will be performed}
+  \begin{itemize}
+  \item Due to the class imbalance, SMOTE will be used to oversamlpe the
+    minority class
+  \item Whenever possible, classification algorithms will be set to learn
+    probabilities rather than classes
+  \item This allows thresholding to be used
+  \item Thresholds will be optimized w.r.t.\ a self-defined ``balanced measure''
+    (denoted $\mathrm{bm}$), given by
+    \begin{equation}
+      \mathrm{bm} = \frac{\mathrm{accuracy} + 2 \cdot F_1}{3}\text{.}
+    \end{equation}
+  \end{itemize}
+\end{frame}
+
+\subsection{Decision trees}
+\begin{frame}{Decision tree using the CART algorithm}
+  \begin{itemize}
+  \item Using a default threshold of \num{0.5}, 5-fold stratified
+    cross-validation results in \SI{90}{\percent} accuracy, \num{0.592} area
+    under ROC, and a disappointing $F_1$ score of almost \num{0}
+  \item Thresholding increases the $F_1$ score to a solid \num{0.2}, but
+    decreases accuracy to \SI{72}{\percent}
+  \item ROC analysis shows flat regions and spikes indicating that the CART
+    algorithm is very sensitive to threshold changes
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Threshold dependence curves for CART}
+  \begin{figure}[!h]
+    \includegraphics[width=\linewidth,
+    height=0.75\textheight]{rpart_curves-2.pdf}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Decision tree using the J48 algorithm}
+  \begin{itemize}
+  \item Using a default threshold of \num{0.5}, 5-fold stratified
+    cross-validation results in \SI{89.6}{\percent} accuracy, \num{0.578} area
+    under ROC, and a disappointing $F_1$ score of \num{0.03}
+  \item Thresholding increases the $F_1$ score to \num{0.154}, but
+    decreases accuracy to \SI{81}{\percent}
+  \item $t$-test indicates that J48 performs roughly the same as CART in terms
+    of accuracy
+  \item ROC analysis shows that J48 is less sensitive to threshold changes than
+    cart, i.e., it exhibits smooth ROC curves
+  \end{itemize}
+\end{frame}
+
+\subsection{Na\"i{}ve Bayes}
+\begin{frame}{Na\"i{}ve Bayes classification}
+  \begin{itemize}
+  \item ``Out of the box,'' na\"i{}ve Bayes has the best $F_1$ score of
+    \num{0.2}, but a relatively low accuracy of \SI{75}{\percent}.
+  \item Unfortunately, thresholding lowers the $F_1$ score in order to account
+    for the low accuracy
+  \item $F_1$ is lowered to \num{0.193}, but accuracy boosted to
+    \SI{80}{\percent}
+  \item Na\"i{}ve Bayes exhibits the smoothest ROC curves and is least dependent
+    on the threshold
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Threshold dependence curves for na\"i{}ve Bayes}
+  \begin{figure}[!h]
+    \includegraphics[width=\linewidth, height=0.75\textheight]{nb_curves-2.pdf}
+  \end{figure}
+\end{frame}
+
+\subsection{$k$-nearest neighbors}
+\begin{frame}{Setting up the $k$NN algorithm}
+  \begin{itemize}
+  \item Weka's implementation of $k$NN will be used, also called IB$k$
+    (instance-based learning)
+  \item Cross-validation will be used to determine the value of $k \in \{1,
+    \ldots, 13\}$
+  \item $k = 4$ ends up being taken as optimum
+  \item $k$-d trees will be used for nearest-neighbor queries in $\mathcal
+    O(\log n)$ time
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{$k$NN classification}
+  \begin{itemize}
+  \item Unfortunately, it turns out the $k$NN is the poorest of all classifiers
+  \item
+\begin{Verbatim}
+=== Detailed Accuracy By Class ===
+
+               ROC Area  F-Measure  Class
+               0.532     0.889      Other
+               0.532     0.128      Readmitted
+Weighted Avg.  0.532     0.814
+\end{Verbatim}
+  \item The accuracy is \SI{80}{\percent}, but as it can be seen, the area under
+    the ROC curve leaves a lot to be desired
+  \end{itemize}
+\end{frame}
+
+\section{Clustering}
+
+\subsection{DBSCAN}
+\begin{frame}{Setting up the DBSCAN algorithm}
+  DBSCAN's parameters will be determined by the following widely accepted
+  strategy:
+  \begin{enumerate}
+  \item \textsc{Eps} is determined by looking at a knee of a $k$NN distance plot
+    (I will take $k = 4$);
+  \item \textsc{MinPts} is set to $\#\{\text{dimensions}\} + 1$.
+  \end{enumerate}
+  The figure on the next slide shows a knee at distance $\approx \num{11}$, so I
+  will take $\textsc{Eps} = 1$.
+\end{frame}
+
+\begin{frame}{Identifying a knee in a $4$NN plot}
+  \begin{figure}[!h]
+    \includegraphics[clip, trim=0 0 0 2cm, width=\linewidth,
+    height=0.75\textheight]{dbscan_pars-1.pdf}
+  \end{figure}
+\end{frame}
+
+\begin{frame}[fragile]{DBSCAN clustering and analysis}
+  \begin{itemize}
+  \item DBSCAN discovers \num{4} clusters and \num{179} noise points
+\begin{Verbatim}
+## DBSCAN clustering for 20000 objects.
+## Parameters: eps = 11, minPts = 73
+## The clustering contains 4 cluster(s) and
+## 179 noise points.
+## 
+##     0     1     2     3     4 
+##   179 19374   152   141   154 
+\end{Verbatim}
+  \item  These clusters do not correspond to our \texttt{readmitted} attribute
+  \end{itemize}
+\end{frame}
+
+\subsection{$k$-means}
+\begin{frame}{$k$-means clustering and analysis}
+  I will try $k$ values ranging from \num{2} to \num{50}.  The
+  $\mathrm{BetweenSS}$ to $\mathrm{TotalSS}$ ratios can be seen below.  They are
+  poor even for $k = 50$, leading me to believe that there are no well-separated
+  clusters in terms of $k$-means.
+
+  \begin{figure}[!h]
+    \includegraphics[clip, trim=0 0 0 2cm, width=\linewidth,
+    height=0.55\textheight]{kmeans_err-1.pdf}
+  \end{figure}
+\end{frame}
+
+\section{Association rule mining}
+
+\subsection{Preliminaries}
+\begin{frame}{The setup for mining association rules}
+  \begin{itemize}
+  \item The apriori algorithm will be used
+  \item Numeric attributes will be discretized by clustering
+  \item There appear to be many frequent items making up for good left-hand side
+    candidates
+  \item The minimum support will be set to \num{0.25}, the minimum confidence to
+    \num{0.75}, and the maximum number of items in a rule to \num{15}
+  \item Confidence and lift will be used as ``goodness'' measures
+  \end{itemize}
+\end{frame}
+
+\subsection{Mining the rules}
+\begin{frame}{Running the apriori algorithm}
+  \begin{itemize}
+  \item The apriori algorithm generates \num{27868} rules
+  \item Rules with the highest lift are those which tell us whether a patient
+    should be administered a change in medicine
+  \item Rules with the highest confidence are those which tell us whether a
+    patient should be administered any medicine
+  \item These rules are, fortunately, not trivial
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Visualizing the generated rules}
+  \begin{figure}[!h]
+    \includegraphics[width=\linewidth]{plot_all_rules-1.pdf}
+  \end{figure}
+\end{frame}
+
+\section{Conclusion}
+
+\subsection{Classification}
+\begin{frame}{Classification insights}
+  \begin{itemize}
+  \item Classification is hard due to the imbalance, but thresholding helps
+  \item SMOTE may lead to overfitting
+  \item Thus, it might be worthwhile to explore ensemble-based algorithms, which
+    are known to be less susceptible to overfitting
+  \item Adding pairwise interactions is likely to help due to the added
+    nonlinearity
+  \end{itemize}
+\end{frame}
+
+\subsection{Clustering and association rules}
+\begin{frame}{Clustering and association rules insights}
+  \begin{itemize}
+  \item There are no well-defined clusters in terms of DBSCAN or $k$-means
+  \item However, meaningful association rules \emph{do exist}
+  \item Additional data and/or attributes might be needed in order to look for
+    clusters or improve on other concepts
+  \end{itemize}
+\end{frame}
+
+\end{document}
+
+%%% Local Variables:
+%%% TeX-command-extra-options: "-shell-escape"
+%%% TeX-master: t
+%%% End:
